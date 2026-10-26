@@ -32,3 +32,4 @@ caw = ["static/*", "static/i18n/*", "workspace_template/*", "workspace_template/
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
