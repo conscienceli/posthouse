@@ -1,9 +1,11 @@
-# Cross-Agent Workspace
+# Posthouse
 
-**Shared, versioned project workspaces and memory for all of your AI agents.** Claude, ChatGPT,
-Gemini, Claude Code, Codex, Gemini CLI, Cursor and others can all read and write the same
-project. When you open a new conversation with any of them, it can catch up on the project
-with a single call.
+**Shared, versioned memory for all your AI agents.** Claude, ChatGPT, Gemini, Claude Code,
+Codex, Gemini CLI, Cursor and others can all read and write the same project. When you open a
+new conversation with any of them, it can catch up on the project with a single call.
+
+*A posthouse (驿站) was a relay station where a courier handed over the mail and a fresh rider
+carried it on. Here every agent hands over at the workspace, and the next one picks it up.*
 
 [中文说明 / Chinese README](README.zh-CN.md)
 
@@ -14,17 +16,17 @@ More screenshots: [change history](docs/images/history.png) · [OAuth sign-in pa
 ## Why
 
 Web chat apps cannot mount a file share or log in to WebDAV, and each app keeps its own separate
-memory. Cross-Agent Workspace (CAW) gives every project a **workspace**: a folder of plain files on
+memory. Posthouse gives every project a **workspace**: a folder of plain files on
 your server. Agents reach it in three ways:
 
 - **MCP**: Claude, ChatGPT, Gemini and the CLI agents add it as a remote MCP connector. The server
   has its own OAuth login page, where you sign in with a password.
 - **REST + Skill**: agents that have a shell (Claude Cowork, Claude Code, Codex, …) use the
-  bundled skill, `caw.py`, or `curl`.
+  bundled skill, `posthouse.py`, or `curl`.
 - **Admin UI**: you browse, edit, upload, restore old versions and manage access in a browser.
 
 ```
- Claude.ai ─┐                    ┌──────────── Cross-Agent Workspace ─────────────┐
+ Claude.ai ─┐                    ┌──────────── Posthouse ─────────────┐
  ChatGPT  ──┤  MCP (OAuth)       │  /mcp     MCP server (Streamable HTTP)          │
  Gemini   ──┤ ─────────────────▶ │  /oauth   OAuth 2.1 (password sign-in page)     │──▶ data/workspaces/<name>/
  Claude Code┤                    │  /api     REST API (+ /api/docs)                │      AGENTS.md  STATUS.md
@@ -66,12 +68,12 @@ your server. Agents reach it in three ways:
 ### With Docker (recommended)
 
 ```bash
-git clone https://github.com/conscienceli/cross-agent-workspace.git
-cd cross-agent-workspace
+git clone https://github.com/conscienceli/posthouse.git
+cd posthouse
 
 ./scripts/docker-start.sh                              # http://<server>:8080
 # or, with a domain pointing at this server (needed by Claude/ChatGPT/Gemini on the web):
-./scripts/docker-start.sh --domain caw.example.com     # https://caw.example.com (Let's Encrypt)
+./scripts/docker-start.sh --domain posthouse.example.com     # https://posthouse.example.com (Let's Encrypt)
 ```
 
 The script creates `.env` with random admin and agent passwords, builds the image, starts the
@@ -97,8 +99,8 @@ HTTPS on port 443 with your own proxy; examples are in [docs/deploy.md](docs/dep
 
 | Level | Credential | Can do |
 |---|---|---|
-| **Admin** | `CAW_ADMIN_PASSWORD` | Everything: admin UI, delete/rename workspaces, set passwords, tokens, revoke apps |
-| **Agent** | `CAW_AGENT_PASSWORD` | List and **create** workspaces; read/write files in **all** workspaces |
+| **Admin** | `POSTHOUSE_ADMIN_PASSWORD` | Everything: admin UI, delete/rename workspaces, set passwords, tokens, revoke apps |
+| **Agent** | `POSTHOUSE_AGENT_PASSWORD` | List and **create** workspaces; read/write files in **all** workspaces |
 | **Workspace** | that workspace's own password (optional) | Read/write files in **that workspace only** |
 
 Ways to present a credential:
@@ -108,8 +110,8 @@ Ways to present a credential:
   that connection to one workspace (this works with the admin or agent password too).
 - **HTTP Basic.** User `agent`, `admin` or a workspace name, plus the password (for the skill,
   curl, CLI agents and Claude request headers).
-- **Access tokens** (`caw_…`). Created in the UI as `Authorization: Bearer caw_…`, or as a
-  secret URL `https://…/mcp/t/caw_…` for apps that only accept a URL. They are revocable and can
+- **Access tokens** (`ph_…`). Created in the UI as `Authorization: Bearer ph_…`, or as a
+  secret URL `https://…/mcp/t/ph_…` for apps that only accept a URL. They are revocable and can
   be limited to one workspace.
 
 ## Connect your agents
@@ -122,16 +124,16 @@ with copy buttons.
 | **Claude** (web, desktop, mobile, Cowork) | Settings → Connectors → *Add custom connector* → paste the URL → sign in with a password |
 | **ChatGPT** (web) | Settings → Security → enable *Developer mode*, then Apps/Plugins → *+* → paste the URL → OAuth → password. Select the app in each new chat. Requires a paid plan; write support depends on the plan (beta). |
 | **Gemini** (web) | Settings → Connected apps → *Add a custom app* (currently US-only, personal accounts) |
-| **Claude Code** | `claude mcp add --transport http caw https://caw.example.com/mcp`, then `/mcp` to sign in. Or add `--header "Authorization: Bearer caw_…"` |
-| **Codex CLI** | `codex mcp add caw --url https://caw.example.com/mcp`, then `codex mcp login caw`. Or set `bearer_token_env_var` in `~/.codex/config.toml` |
-| **Gemini CLI** | `gemini mcp add --transport http caw https://caw.example.com/mcp`, then `/mcp auth caw`. Or `"httpUrl"` + `"headers"` in `settings.json` |
-| **Anything with a shell** | The [skill](skills/cross-agent-workspace/SKILL.md) / `caw.py` / `curl` with Basic auth or a token |
-| **Apps that only take a URL** | Create a token in the UI and use `https://…/mcp/t/caw_…` |
+| **Claude Code** | `claude mcp add --transport http posthouse https://posthouse.example.com/mcp`, then `/mcp` to sign in. Or add `--header "Authorization: Bearer ph_…"` |
+| **Codex CLI** | `codex mcp add posthouse --url https://posthouse.example.com/mcp`, then `codex mcp login posthouse`. Or set `bearer_token_env_var` in `~/.codex/config.toml` |
+| **Gemini CLI** | `gemini mcp add --transport http posthouse https://posthouse.example.com/mcp`, then `/mcp auth posthouse`. Or `"httpUrl"` + `"headers"` in `settings.json` |
+| **Anything with a shell** | The [skill](skills/posthouse/SKILL.md) / `posthouse.py` / `curl` with Basic auth or a token |
+| **Apps that only take a URL** | Create a token in the UI and use `https://…/mcp/t/ph_…` |
 
 Step-by-step guides and troubleshooting are in [docs/mcp.md](docs/mcp.md). A good first message in
 a new chat:
 
-> You can use the "Cross-Agent Workspace" connector. Our project lives in the workspace "my-project".
+> You can use the "Posthouse" connector. Our project lives in the workspace "my-project".
 > First call start_session(workspace="my-project") and read AGENTS.md and STATUS.md. Keep STATUS.md
 > current and call log_progress before you stop.
 
@@ -151,18 +153,18 @@ a new chat:
 
 ## Skill and CLI
 
-[`skills/cross-agent-workspace`](skills/cross-agent-workspace) holds a ready-made agent skill:
-[`SKILL.md`](skills/cross-agent-workspace/SKILL.md) and `scripts/caw.py`, a CLI that uses only the
+[`skills/posthouse`](skills/posthouse) holds a ready-made agent skill:
+[`SKILL.md`](skills/posthouse/SKILL.md) and `scripts/posthouse.py`, a CLI that uses only the
 Python standard library.
 
 ```bash
-export CAW_URL=https://caw.example.com CAW_USER=agent CAW_PASSWORD=… CAW_AGENT="Claude Code"
-python3 caw.py start my-project
-python3 caw.py read my-project STATUS.md
-python3 caw.py log my-project --summary "Drafted section 2" --next "Review section 3"
+export POSTHOUSE_URL=https://posthouse.example.com POSTHOUSE_USER=agent POSTHOUSE_PASSWORD=… POSTHOUSE_AGENT="Claude Code"
+python3 posthouse.py start my-project
+python3 posthouse.py read my-project STATUS.md
+python3 posthouse.py log my-project --summary "Drafted section 2" --next "Review section 3"
 ```
 
-`./scripts/package-skill.sh` builds `dist/cross-agent-workspace-skill.zip` for upload to Claude.
+`./scripts/package-skill.sh` builds `dist/posthouse-skill.zip` for upload to Claude.
 To use the skill with Claude, Claude Code, Codex and Gemini CLI, see [docs/skill.md](docs/skill.md).
 
 ## REST API
@@ -171,9 +173,9 @@ Everything the UI and the skill do goes through `/api`. Interactive docs are at 
 summary is in [docs/api.md](docs/api.md). Curl-friendly raw endpoints:
 
 ```bash
-curl -u agent:$PW https://caw.example.com/api/workspaces/my-project/raw/STATUS.md
+curl -u agent:$PW https://posthouse.example.com/api/workspaces/my-project/raw/STATUS.md
 curl -u agent:$PW -X PUT --data-binary @STATUS.md -H "If-Match: <version>" \
-     https://caw.example.com/api/workspaces/my-project/raw/STATUS.md
+     https://posthouse.example.com/api/workspaces/my-project/raw/STATUS.md
 ```
 
 ## Configuration
@@ -182,20 +184,20 @@ All settings come from environment variables or `.env`. See [`.env.example`](.en
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `CAW_ADMIN_PASSWORD` | generated | Admin password (saved to `data/admin-password.txt` if not set) |
-| `CAW_AGENT_PASSWORD` | empty (disabled) | Agent password |
-| `CAW_PUBLIC_URL` | from request | Public base URL, e.g. `https://caw.example.com` (set it behind a proxy) |
-| `CAW_DATA_DIR` | `./data` (`/data` in Docker) | Workspaces, trash and the SQLite database |
-| `CAW_HOST` / `CAW_PORT` | `0.0.0.0` / `8080` | Listen address (bare metal) |
-| `CAW_DOMAIN` | empty | Enables the bundled Caddy HTTPS profile (Docker) |
-| `CAW_HOST_PORT` / `CAW_BIND` | `8080` / `0.0.0.0` | Published port and bind address (Docker) |
-| `CAW_MAX_FILE_MB` | `10` | Maximum file size |
-| `CAW_GIT` | `true` | Version every change with git |
-| `CAW_ACCESS_TOKEN_TTL` | `3600` | OAuth access token lifetime (seconds) |
-| `CAW_REFRESH_TOKEN_DAYS` | `180` | OAuth refresh token lifetime (days, rotated on use) |
-| `CAW_SESSION_HOURS` | `12` | Admin UI session lifetime |
-| `CAW_LOGIN_MAX_FAILURES` / `CAW_LOGIN_WINDOW_SECONDS` | `10` / `600` | Password rate limit per client IP |
-| `CAW_TRUSTED_PROXIES` | `127.0.0.1,::1` | Proxies allowed to set `X-Forwarded-*` (set by `--domain` for the bundled Caddy) |
+| `POSTHOUSE_ADMIN_PASSWORD` | generated | Admin password (saved to `data/admin-password.txt` if not set) |
+| `POSTHOUSE_AGENT_PASSWORD` | empty (disabled) | Agent password |
+| `POSTHOUSE_PUBLIC_URL` | from request | Public base URL, e.g. `https://posthouse.example.com` (set it behind a proxy) |
+| `POSTHOUSE_DATA_DIR` | `./data` (`/data` in Docker) | Workspaces, trash and the SQLite database |
+| `POSTHOUSE_HOST` / `POSTHOUSE_PORT` | `0.0.0.0` / `8080` | Listen address (bare metal) |
+| `POSTHOUSE_DOMAIN` | empty | Enables the bundled Caddy HTTPS profile (Docker) |
+| `POSTHOUSE_HOST_PORT` / `POSTHOUSE_BIND` | `8080` / `0.0.0.0` | Published port and bind address (Docker) |
+| `POSTHOUSE_MAX_FILE_MB` | `10` | Maximum file size |
+| `POSTHOUSE_GIT` | `true` | Version every change with git |
+| `POSTHOUSE_ACCESS_TOKEN_TTL` | `3600` | OAuth access token lifetime (seconds) |
+| `POSTHOUSE_REFRESH_TOKEN_DAYS` | `180` | OAuth refresh token lifetime (days, rotated on use) |
+| `POSTHOUSE_SESSION_HOURS` | `12` | Admin UI session lifetime |
+| `POSTHOUSE_LOGIN_MAX_FAILURES` / `POSTHOUSE_LOGIN_WINDOW_SECONDS` | `10` / `600` | Password rate limit per client IP |
+| `POSTHOUSE_TRUSTED_PROXIES` | `127.0.0.1,::1` | Proxies allowed to set `X-Forwarded-*` (set by `--domain` for the bundled Caddy) |
 
 ## Security notes
 
@@ -211,7 +213,7 @@ All settings come from environment variables or `.env`. See [`.env.example`](.en
 
 ## Translations
 
-UI strings live in [`caw/static/i18n/`](caw/static/i18n). To add a language, copy `en.json` to
+UI strings live in [`posthouse/static/i18n/`](posthouse/static/i18n). To add a language, copy `en.json` to
 `<code>.json` (for example `ja.json` or `fr.json`), translate the values, and add
 `{"code": "<code>", "name": "<native name>"}` to `languages.json`. The admin UI dropdown and the
 OAuth sign-in page (chosen from the browser's `Accept-Language`) use these files. Any missing keys
@@ -222,12 +224,12 @@ fall back to English.
 ```bash
 pip install -r requirements-dev.txt
 pytest                      # unit + integration tests (REST, MCP, OAuth, CLI)
-python -m caw --port 8080   # reads .env if present
+python -m posthouse --port 8080   # reads .env if present
 ```
 
-Code layout: `caw/storage.py` (workspaces, files, git), `caw/auth.py` (passwords, tokens),
-`caw/oauth.py` (authorization server), `caw/mcp_server.py` (MCP), `caw/api.py` (REST),
-`caw/static/` (admin UI, no build step).
+Code layout: `posthouse/storage.py` (workspaces, files, git), `posthouse/auth.py` (passwords, tokens),
+`posthouse/oauth.py` (authorization server), `posthouse/mcp_server.py` (MCP), `posthouse/api.py` (REST),
+`posthouse/static/` (admin UI, no build step).
 
 ## License
 

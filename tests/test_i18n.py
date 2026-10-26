@@ -4,7 +4,7 @@ import json
 import re
 from pathlib import Path
 
-STATIC = Path(__file__).resolve().parents[1] / "caw" / "static"
+STATIC = Path(__file__).resolve().parents[1] / "posthouse" / "static"
 I18N = STATIC / "i18n"
 
 

@@ -7,10 +7,10 @@ Base path: `/api`. Interactive OpenAPI docs: `/api/docs`. All responses are JSON
 Send one of these:
 
 - `Authorization: Basic base64(user:password)`, where user is `admin`, `agent` or a workspace name
-- `Authorization: Bearer <token>`, with an access token `caw_…` or an OAuth access token
-- the admin UI session cookie, which also needs `X-CAW-CSRF: 1` on non-GET requests
+- `Authorization: Bearer <token>`, with an access token `ph_…` or an OAuth access token
+- the admin UI session cookie, which also needs `X-Posthouse-CSRF: 1` on non-GET requests
 
-Optional: `X-CAW-Agent: <name>` sets the author recorded in history and activity.
+Optional: `X-Posthouse-Agent: <name>` sets the author recorded in history and activity.
 
 Errors look like `{"error": "<code>", "message": "..."}` with status 400, 401, 403, 404, 409
 (version conflict, also includes `current_version`), 413 (too large), 422 (validation) or 429
@@ -36,8 +36,8 @@ Errors look like `{"error": "<code>", "message": "..."}` with status 400, 401, 4
 | `POST /api/workspaces/{ws}/move` `{source, destination, overwrite?}` | access | Move/rename |
 | `POST /api/workspaces/{ws}/mkdir` `{path}` | access | Create folder |
 | `DELETE /api/workspaces/{ws}/file?path=&recursive=` | access | Delete (recoverable from history) |
-| `GET /api/workspaces/{ws}/raw/{path}?revision=&download=` | access | Raw bytes; `X-CAW-Version` / `ETag` headers |
-| `PUT /api/workspaces/{ws}/raw/{path}` | access | Raw body write; `If-Match: <version>`, `If-None-Match: *`, `X-CAW-Message`; `?append=true` appends |
+| `GET /api/workspaces/{ws}/raw/{path}?revision=&download=` | access | Raw bytes; `X-Posthouse-Version` / `ETag` headers |
+| `PUT /api/workspaces/{ws}/raw/{path}` | access | Raw body write; `If-Match: <version>`, `If-None-Match: *`, `X-Posthouse-Message`; `?append=true` appends |
 | `POST /api/workspaces/{ws}/upload` (multipart `dir`, `files`) | access | Upload files |
 | `GET /api/workspaces/{ws}/archive` | access | Zip of the workspace (without `.git`) |
 | `GET /api/workspaces/{ws}/session?format=json\|md` | access | Session bundle (same as MCP `start_session`) |

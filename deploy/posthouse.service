@@ -1,6 +1,6 @@
 # systemd unit template; scripts/install.sh --systemd fills in __DIR__ and __USER__.
 [Unit]
-Description=Cross-Agent Workspace (shared files and memory for AI agents)
+Description=Posthouse (shared files and memory for AI agents)
 After=network-online.target
 Wants=network-online.target
 
@@ -9,7 +9,7 @@ Type=simple
 User=__USER__
 WorkingDirectory=__DIR__
 EnvironmentFile=__DIR__/.env
-ExecStart=__DIR__/.venv/bin/python -m caw
+ExecStart=__DIR__/.venv/bin/python -m posthouse
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true

@@ -32,7 +32,7 @@ from .auth import AuthError
 from .deps import base_url, client_key, get_ctx
 from .security import RateLimiter, constant_eq, new_token, pkce_s256, token_hash, verify_password
 
-log = logging.getLogger("caw.oauth")
+log = logging.getLogger("posthouse.oauth")
 router = APIRouter()
 
 CODE_TTL = 300
@@ -63,8 +63,8 @@ def protected_resource_metadata(request: Request) -> dict:
         "authorization_servers": [base],
         "scopes_supported": SCOPES,
         "bearer_methods_supported": ["header"],
-        "resource_name": "Cross-Agent Workspace",
-        "resource_documentation": "https://github.com/conscienceli/cross-agent-workspace",
+        "resource_name": "Posthouse",
+        "resource_documentation": "https://github.com/conscienceli/posthouse",
     }
 
 
@@ -85,7 +85,7 @@ def authorization_server_metadata(request: Request) -> dict:
         "scopes_supported": SCOPES + ["offline_access"],
         "client_id_metadata_document_supported": True,
         "authorization_response_iss_parameter_supported": True,
-        "service_documentation": "https://github.com/conscienceli/cross-agent-workspace",
+        "service_documentation": "https://github.com/conscienceli/posthouse",
     }
 
 
@@ -192,7 +192,7 @@ def _fetch_cimd(client_id: str) -> dict:
 
 def _fetch_cimd_locked(client_id: str, u, port: int, ips: list[str]) -> dict:
     deadline = time.monotonic() + CIMD_DEADLINE
-    headers = {"Accept": "application/json", "User-Agent": f"cross-agent-workspace/{__version__}"}
+    headers = {"Accept": "application/json", "User-Agent": f"posthouse/{__version__}"}
     if urllib.request.getproxies().get("https"):
         # An outbound proxy resolves the name itself; go through it.
         opener = urllib.request.build_opener(_NoRedirect)
@@ -302,7 +302,7 @@ async def register(request: Request):
         ctx.db.execute(
             "DELETE FROM oauth_clients WHERE client_id IN (SELECT client_id FROM oauth_clients WHERE is_cimd=0 "
             "AND client_id NOT IN (SELECT client_id FROM oauth_grants) ORDER BY created_at LIMIT 500)")
-    client_id = "caw-" + uuid.uuid4().hex
+    client_id = "ph-" + uuid.uuid4().hex
     secret = new_token("", 32) if method != "none" else None
     now = time.time()
     ctx.db.execute(
@@ -381,7 +381,7 @@ def _translator(request: Request):
 
 LOGIN_PAGE = """<!doctype html>
 <html lang="{lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{title} · Cross-Agent Workspace</title>
+<title>{title} · {app}</title>
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--fg:#1d2330;--muted:#5d6676;--line:#dde1e8;--accent:#3b5bdb;--warn:#a15c00;--err:#c92a2a}
 @media (prefers-color-scheme:dark){:root{--bg:#12151b;--card:#1b2029;--fg:#e8ebf1;--muted:#9aa3b2;--line:#2c3340;--accent:#7c95ff;--warn:#f0a63a;--err:#ff6b6b}}
@@ -400,7 +400,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
 .foot{color:var(--muted);font-size:12px;margin-top:16px}
 </style></head><body>
 <form class="card" method="post" action="authorize" autocomplete="off">
-<h1>Cross-Agent Workspace</h1>
+<h1>{app}</h1>
 <p class="sub">{title}</p>
 <div class="client">{wants}<br>
 <span class="host">{redirects}</span>{loopback_warning}</div>
@@ -445,6 +445,7 @@ def _render_login(request: Request, req: dict, client: dict, error: str = "", wo
     loopback = (urlparse(req["redirect_uri"]).hostname or "") in LOOPBACK_HOSTS
     page = _fill(LOGIN_PAGE, {
         "lang": e(code),
+        "app": e(t("app.name")),
         "title": e(t("oauth.title")),
         "wants": e(t("oauth.wants", client="\x00")).replace(
             "\x00", f"<b>{e(client.get('client_name') or 'An application')}</b>"),

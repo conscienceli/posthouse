@@ -1,35 +1,35 @@
-# Cross-Agent Workspace
+# Posthouse
 #   Plain HTTP on port 8080:       docker compose up -d --build
-#   With automatic HTTPS (Caddy):  docker compose --profile https up -d --build   (needs CAW_DOMAIN in .env)
+#   With automatic HTTPS (Caddy):  docker compose --profile https up -d --build   (needs POSTHOUSE_DOMAIN in .env)
 # The easiest way is scripts/docker-start.sh, which also creates .env with random passwords.
 
 services:
-  caw:
+  posthouse:
     build: .
-    image: cross-agent-workspace:latest
-    container_name: caw
+    image: posthouse:latest
+    container_name: posthouse
     restart: unless-stopped
     env_file: .env
     environment:
-      # Fixed inside the container; host-side port/bind are CAW_HOST_PORT / CAW_BIND.
-      CAW_DATA_DIR: /data
-      CAW_HOST: 0.0.0.0
-      CAW_PORT: "8080"
-    user: "${CAW_UID:-1000}:${CAW_GID:-1000}"
+      # Fixed inside the container; host-side port/bind are POSTHOUSE_HOST_PORT / POSTHOUSE_BIND.
+      POSTHOUSE_DATA_DIR: /data
+      POSTHOUSE_HOST: 0.0.0.0
+      POSTHOUSE_PORT: "8080"
+    user: "${POSTHOUSE_UID:-1000}:${POSTHOUSE_GID:-1000}"
     volumes:
       - ./data:/data
     ports:
-      - "${CAW_BIND:-0.0.0.0}:${CAW_HOST_PORT:-8080}:8080"
+      - "${POSTHOUSE_BIND:-0.0.0.0}:${POSTHOUSE_HOST_PORT:-8080}:8080"
 
   caddy:
     image: caddy:2
-    container_name: caw-caddy
+    container_name: posthouse-caddy
     profiles: ["https"]
     restart: unless-stopped
     depends_on:
-      - caw
+      - posthouse
     environment:
-      CAW_DOMAIN: ${CAW_DOMAIN:-}
+      POSTHOUSE_DOMAIN: ${POSTHOUSE_DOMAIN:-}
     ports:
       - "80:80"
       - "443:443"

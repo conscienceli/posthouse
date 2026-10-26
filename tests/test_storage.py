@@ -1,8 +1,8 @@
 import pytest
 
-from caw.config import Settings
-from caw.db import DB
-from caw.storage import Conflict, Forbidden, NotFound, StorageError, Workspaces, validate_name
+from posthouse.config import Settings
+from posthouse.db import DB
+from posthouse.storage import Conflict, Forbidden, NotFound, StorageError, Workspaces, validate_name
 
 
 @pytest.fixture

@@ -12,4 +12,4 @@ __pycache__
 .pytest_cache
 .env
 *.md
-!caw/workspace_template/**/*.md
+!posthouse/workspace_template/**/*.md

@@ -1,11 +1,11 @@
-# Example nginx site for Cross-Agent Workspace behind your own TLS certificate.
-# Set CAW_PUBLIC_URL=https://caw.example.com in .env so OAuth metadata uses the public URL.
+# Example nginx site for Posthouse behind your own TLS certificate.
+# Set POSTHOUSE_PUBLIC_URL=https://posthouse.example.com in .env so OAuth metadata uses the public URL.
 server {
     listen 443 ssl http2;
-    server_name caw.example.com;
+    server_name posthouse.example.com;
 
-    ssl_certificate     /etc/letsencrypt/live/caw.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/caw.example.com/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/posthouse.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/posthouse.example.com/privkey.pem;
 
     client_max_body_size 50m;
 
@@ -22,6 +22,6 @@ server {
 
 server {
     listen 80;
-    server_name caw.example.com;
+    server_name posthouse.example.com;
     return 301 https://$host$request_uri;
 }

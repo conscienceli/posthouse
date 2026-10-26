@@ -10,7 +10,7 @@ This workspace is shared by several AI agents (Claude, ChatGPT, Gemini, CLI agen
 the human owner. Nobody remembers previous conversations, so everything that matters must be
 written here.
 
-1. **Start**: call `start_session` (MCP) or `caw.py start` (skill). Read this file and `STATUS.md`.
+1. **Start**: call `start_session` (MCP) or `posthouse.py start` (skill). Read this file and `STATUS.md`.
 2. **Work**: keep project files under `files/` (or a structure you agree on below).
 3. **Decide**: when you make a decision someone else should not undo, append it to `DECISIONS.md`
    with the date, the decision and the reason.

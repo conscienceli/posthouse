@@ -1,8 +1,9 @@
-# Cross-Agent Workspace（跨智能体工作区）
+# Posthouse 驿站
 
-**给你所有 AI 智能体用的共享、带版本历史的项目工作区与记忆。** Claude、ChatGPT、Gemini、
-Claude Code、Codex、Gemini CLI、Cursor 等都能读写同一个项目。任何一个智能体新开对话，
-调用一次就能跟上项目的最新进度。
+**为你所有 AI 智能体提供共享、带版本历史的记忆。** Claude、ChatGPT、Gemini、Claude Code、
+Codex、Gemini CLI、Cursor 等都能读写同一个项目。任何一个智能体新开对话，调用一次就能跟上项目的最新进度。
+
+*名字取自古代的驿站：信使在驿站交接文书，换人换马继续上路。在这里，每个智能体在工作区交接，下一个接着干。*
 
 [English README](README.md)
 
@@ -13,17 +14,17 @@ Claude Code、Codex、Gemini CLI、Cursor 等都能读写同一个项目。任�
 ## 为什么需要它
 
 网页版聊天应用无法挂载文件共享，也不能登录 WebDAV，而且每个应用的记忆都是各自分开的。
-Cross-Agent Workspace（CAW）给每个项目一个**工作区**：就是你服务器上的一个普通文件夹。
+Posthouse（驿站）给每个项目一个**工作区**：就是你服务器上的一个普通文件夹。
 智能体可以通过三种方式访问：
 
 - **MCP**：Claude、ChatGPT、Gemini 和各类命令行智能体把它添加为远程 MCP 连接器。
   服务器自带 OAuth 登录页，在页面上输入密码即可。
 - **REST + Skill**：带命令行的智能体（Claude Cowork、Claude Code、Codex……）使用仓库自带的
-  Skill、`caw.py` 或 `curl`。
+  Skill、`posthouse.py` 或 `curl`。
 - **管理界面**：你在浏览器里浏览、编辑、上传、恢复旧版本，并管理访问权限。
 
 ```
- Claude.ai ─┐                    ┌──────────── Cross-Agent Workspace ─────────────┐
+ Claude.ai ─┐                    ┌──────────── Posthouse ─────────────┐
  ChatGPT  ──┤  MCP (OAuth)       │  /mcp     MCP 服务（Streamable HTTP）           │
  Gemini   ──┤ ─────────────────▶ │  /oauth   OAuth 2.1（密码登录页）               │──▶ data/workspaces/<名称>/
  Claude Code┤                    │  /api     REST API（含 /api/docs）              │      AGENTS.md  STATUS.md
@@ -61,12 +62,12 @@ Cross-Agent Workspace（CAW）给每个项目一个**工作区**：就是你服�
 ### 使用 Docker（推荐）
 
 ```bash
-git clone https://github.com/conscienceli/cross-agent-workspace.git
-cd cross-agent-workspace
+git clone https://github.com/conscienceli/posthouse.git
+cd posthouse
 
 ./scripts/docker-start.sh                              # http://<服务器>:8080
 # 或者，若已有域名解析到这台服务器（网页版 Claude/ChatGPT/Gemini 需要 HTTPS）：
-./scripts/docker-start.sh --domain caw.example.com     # https://caw.example.com（Let's Encrypt 证书）
+./scripts/docker-start.sh --domain posthouse.example.com     # https://posthouse.example.com（Let's Encrypt 证书）
 ```
 
 脚本会创建 `.env` 并随机生成管理员密码和智能体密码，然后构建镜像、启动容器，最后打印访问地址和密码。
@@ -91,8 +92,8 @@ sudo ./scripts/install.sh --systemd  # 或安装为 systemd 服务（开机自�
 
 | 级别 | 凭据 | 能做什么 |
 |---|---|---|
-| **管理员** | `CAW_ADMIN_PASSWORD` | 一切操作：管理界面、删除/重命名工作区、设置密码、令牌、撤销应用 |
-| **智能体** | `CAW_AGENT_PASSWORD` | 列出并**新建**工作区；读写**所有**工作区的文件 |
+| **管理员** | `POSTHOUSE_ADMIN_PASSWORD` | 一切操作：管理界面、删除/重命名工作区、设置密码、令牌、撤销应用 |
+| **智能体** | `POSTHOUSE_AGENT_PASSWORD` | 列出并**新建**工作区；读写**所有**工作区的文件 |
 | **工作区** | 该工作区自己的密码（可选） | **只能**读写该工作区的文件 |
 
 提交凭据的方式：
@@ -102,8 +103,8 @@ sudo ./scripts/install.sh --systemd  # 或安装为 systemd 服务（开机自�
   （使用管理员或智能体密码时同样有效）。
 - **HTTP Basic。** 用户名是 `agent`、`admin` 或工作区名称，再加上对应的密码
   （适用于 Skill、curl、命令行智能体和 Claude 请求头）。
-- **访问令牌**（`caw_…`）。在管理界面创建，用法是 `Authorization: Bearer caw_…`；
-  也可以用秘密地址 `https://…/mcp/t/caw_…`，适用于只能填写地址的应用。
+- **访问令牌**（`ph_…`）。在管理界面创建，用法是 `Authorization: Bearer ph_…`；
+  也可以用秘密地址 `https://…/mcp/t/ph_…`，适用于只能填写地址的应用。
   令牌可随时撤销，也可以限定在单个工作区。
 
 ## 连接你的智能体
@@ -115,15 +116,15 @@ MCP 地址是 `https://<你的域名>/mcp`。管理界面的“连接智能体�
 | **Claude**（网页、桌面、手机、Cowork） | 设置 → 连接器 → *添加自定义连接器* → 粘贴地址 → 用密码登录 |
 | **ChatGPT**（网页） | 设置 → 安全 → 开启*开发者模式*，然后在 应用/插件 → *+* → 粘贴地址 → OAuth → 输入密码。每个新对话里都要手动选择它。需要付费套餐；能否写入取决于套餐（beta）。 |
 | **Gemini**（网页） | 设置 → 已连接的应用 → *添加自定义应用*（目前仅限美国的个人账号） |
-| **Claude Code** | `claude mcp add --transport http caw https://caw.example.com/mcp`，然后用 `/mcp` 登录。也可以加上 `--header "Authorization: Bearer caw_…"` |
-| **Codex CLI** | `codex mcp add caw --url https://caw.example.com/mcp`，然后 `codex mcp login caw`。也可以在 `~/.codex/config.toml` 中设置 `bearer_token_env_var` |
-| **Gemini CLI** | `gemini mcp add --transport http caw https://caw.example.com/mcp`，然后 `/mcp auth caw`。也可以在 `settings.json` 中配置 `"httpUrl"` + `"headers"` |
-| **任何带命令行的智能体** | [Skill](skills/cross-agent-workspace/SKILL.md) / `caw.py` / `curl`，配合 Basic 认证或令牌 |
-| **只能填写地址的应用** | 在管理界面创建令牌，使用 `https://…/mcp/t/caw_…` |
+| **Claude Code** | `claude mcp add --transport http posthouse https://posthouse.example.com/mcp`，然后用 `/mcp` 登录。也可以加上 `--header "Authorization: Bearer ph_…"` |
+| **Codex CLI** | `codex mcp add posthouse --url https://posthouse.example.com/mcp`，然后 `codex mcp login posthouse`。也可以在 `~/.codex/config.toml` 中设置 `bearer_token_env_var` |
+| **Gemini CLI** | `gemini mcp add --transport http posthouse https://posthouse.example.com/mcp`，然后 `/mcp auth posthouse`。也可以在 `settings.json` 中配置 `"httpUrl"` + `"headers"` |
+| **任何带命令行的智能体** | [Skill](skills/posthouse/SKILL.md) / `posthouse.py` / `curl`，配合 Basic 认证或令牌 |
+| **只能填写地址的应用** | 在管理界面创建令牌，使用 `https://…/mcp/t/ph_…` |
 
 各平台的分步说明和常见问题见 [docs/mcp.md](docs/mcp.md)。新对话的开场提示词可以这样写：
 
-> 你可以使用“Cross-Agent Workspace”连接器。我们的项目在工作区“my-project”中。
+> 你可以使用“Posthouse”连接器。我们的项目在工作区“my-project”中。
 > 请先调用 start_session(workspace="my-project")，阅读 AGENTS.md 和 STATUS.md。
 > 工作中保持 STATUS.md 为最新，结束前调用 log_progress。
 
@@ -143,17 +144,17 @@ MCP 地址是 `https://<你的域名>/mcp`。管理界面的“连接智能体�
 
 ## Skill 与命令行工具
 
-[`skills/cross-agent-workspace`](skills/cross-agent-workspace) 是一个现成的智能体 Skill，包含
-[`SKILL.md`](skills/cross-agent-workspace/SKILL.md) 和 `scripts/caw.py`（一个只依赖 Python 标准库的命令行工具）。
+[`skills/posthouse`](skills/posthouse) 是一个现成的智能体 Skill，包含
+[`SKILL.md`](skills/posthouse/SKILL.md) 和 `scripts/posthouse.py`（一个只依赖 Python 标准库的命令行工具）。
 
 ```bash
-export CAW_URL=https://caw.example.com CAW_USER=agent CAW_PASSWORD=… CAW_AGENT="Claude Code"
-python3 caw.py start my-project
-python3 caw.py read my-project STATUS.md
-python3 caw.py log my-project --summary "完成第二节初稿" --next "审阅第三节"
+export POSTHOUSE_URL=https://posthouse.example.com POSTHOUSE_USER=agent POSTHOUSE_PASSWORD=… POSTHOUSE_AGENT="Claude Code"
+python3 posthouse.py start my-project
+python3 posthouse.py read my-project STATUS.md
+python3 posthouse.py log my-project --summary "完成第二节初稿" --next "审阅第三节"
 ```
 
-`./scripts/package-skill.sh` 会生成 `dist/cross-agent-workspace-skill.zip`，可以上传到 Claude。
+`./scripts/package-skill.sh` 会生成 `dist/posthouse-skill.zip`，可以上传到 Claude。
 在 Claude、Claude Code、Codex、Gemini CLI 中的用法见 [docs/skill.md](docs/skill.md)。
 
 ## REST API
@@ -162,9 +163,9 @@ python3 caw.py log my-project --summary "完成第二节初稿" --next "审阅�
 适合用 curl 调用的原始文件接口：
 
 ```bash
-curl -u agent:$PW https://caw.example.com/api/workspaces/my-project/raw/STATUS.md
+curl -u agent:$PW https://posthouse.example.com/api/workspaces/my-project/raw/STATUS.md
 curl -u agent:$PW -X PUT --data-binary @STATUS.md -H "If-Match: <版本号>" \
-     https://caw.example.com/api/workspaces/my-project/raw/STATUS.md
+     https://posthouse.example.com/api/workspaces/my-project/raw/STATUS.md
 ```
 
 ## 配置
@@ -173,20 +174,20 @@ curl -u agent:$PW -X PUT --data-binary @STATUS.md -H "If-Match: <版本号>" \
 
 | 变量 | 默认值 | 含义 |
 |---|---|---|
-| `CAW_ADMIN_PASSWORD` | 自动生成 | 管理员密码（未设置时自动生成并保存到 `data/admin-password.txt`） |
-| `CAW_AGENT_PASSWORD` | 空（禁用） | 智能体密码 |
-| `CAW_PUBLIC_URL` | 根据请求推断 | 公网访问地址，如 `https://caw.example.com`（在反向代理后面时请设置） |
-| `CAW_DATA_DIR` | `./data`（Docker 中为 `/data`） | 工作区、回收站和 SQLite 数据库所在目录 |
-| `CAW_HOST` / `CAW_PORT` | `0.0.0.0` / `8080` | 监听地址（不用 Docker 时） |
-| `CAW_DOMAIN` | 空 | 设置后启用自带的 Caddy HTTPS（Docker） |
-| `CAW_HOST_PORT` / `CAW_BIND` | `8080` / `0.0.0.0` | 对外端口和绑定地址（Docker） |
-| `CAW_MAX_FILE_MB` | `10` | 单个文件大小上限 |
-| `CAW_GIT` | `true` | 用 git 记录每次修改 |
-| `CAW_ACCESS_TOKEN_TTL` | `3600` | OAuth 访问令牌有效期（秒） |
-| `CAW_REFRESH_TOKEN_DAYS` | `180` | OAuth 刷新令牌有效期（天，每次使用后轮换） |
-| `CAW_SESSION_HOURS` | `12` | 管理界面登录有效期 |
-| `CAW_LOGIN_MAX_FAILURES` / `CAW_LOGIN_WINDOW_SECONDS` | `10` / `600` | 每个客户端 IP 的密码尝试限制 |
-| `CAW_TRUSTED_PROXIES` | `127.0.0.1,::1` | 允许设置 `X-Forwarded-*` 的代理（使用 `--domain` 时会自动为自带的 Caddy 设置） |
+| `POSTHOUSE_ADMIN_PASSWORD` | 自动生成 | 管理员密码（未设置时自动生成并保存到 `data/admin-password.txt`） |
+| `POSTHOUSE_AGENT_PASSWORD` | 空（禁用） | 智能体密码 |
+| `POSTHOUSE_PUBLIC_URL` | 根据请求推断 | 公网访问地址，如 `https://posthouse.example.com`（在反向代理后面时请设置） |
+| `POSTHOUSE_DATA_DIR` | `./data`（Docker 中为 `/data`） | 工作区、回收站和 SQLite 数据库所在目录 |
+| `POSTHOUSE_HOST` / `POSTHOUSE_PORT` | `0.0.0.0` / `8080` | 监听地址（不用 Docker 时） |
+| `POSTHOUSE_DOMAIN` | 空 | 设置后启用自带的 Caddy HTTPS（Docker） |
+| `POSTHOUSE_HOST_PORT` / `POSTHOUSE_BIND` | `8080` / `0.0.0.0` | 对外端口和绑定地址（Docker） |
+| `POSTHOUSE_MAX_FILE_MB` | `10` | 单个文件大小上限 |
+| `POSTHOUSE_GIT` | `true` | 用 git 记录每次修改 |
+| `POSTHOUSE_ACCESS_TOKEN_TTL` | `3600` | OAuth 访问令牌有效期（秒） |
+| `POSTHOUSE_REFRESH_TOKEN_DAYS` | `180` | OAuth 刷新令牌有效期（天，每次使用后轮换） |
+| `POSTHOUSE_SESSION_HOURS` | `12` | 管理界面登录有效期 |
+| `POSTHOUSE_LOGIN_MAX_FAILURES` / `POSTHOUSE_LOGIN_WINDOW_SECONDS` | `10` / `600` | 每个客户端 IP 的密码尝试限制 |
+| `POSTHOUSE_TRUSTED_PROXIES` | `127.0.0.1,::1` | 允许设置 `X-Forwarded-*` 的代理（使用 `--domain` 时会自动为自带的 Caddy 设置） |
 
 ## 安全建议
 
@@ -202,7 +203,7 @@ curl -u agent:$PW -X PUT --data-binary @STATUS.md -H "If-Match: <版本号>" \
 
 ## 多语言
 
-界面文字在 [`caw/static/i18n/`](caw/static/i18n) 目录。添加一种语言的步骤：把 `en.json` 复制为
+界面文字在 [`posthouse/static/i18n/`](posthouse/static/i18n) 目录。添加一种语言的步骤：把 `en.json` 复制为
 `<语言代码>.json`（如 `ja.json`、`fr.json`），翻译其中的值，再在 `languages.json` 里加一行
 `{"code": "<语言代码>", "name": "<语言本地名称>"}`。管理界面的语言下拉菜单和 OAuth 登录页
 （根据浏览器的 `Accept-Language` 自动选择）都使用这些文件。缺失的条目会自动用英文显示。
@@ -212,11 +213,11 @@ curl -u agent:$PW -X PUT --data-binary @STATUS.md -H "If-Match: <版本号>" \
 ```bash
 pip install -r requirements-dev.txt
 pytest                      # 单元测试与集成测试（REST、MCP、OAuth、CLI）
-python -m caw --port 8080   # 若存在 .env 会自动读取
+python -m posthouse --port 8080   # 若存在 .env 会自动读取
 ```
 
-代码结构：`caw/storage.py`（工作区、文件、git）、`caw/auth.py`（密码、令牌）、`caw/oauth.py`（授权服务器）、
-`caw/mcp_server.py`（MCP）、`caw/api.py`（REST）、`caw/static/`（管理界面，无需构建）。
+代码结构：`posthouse/storage.py`（工作区、文件、git）、`posthouse/auth.py`（密码、令牌）、`posthouse/oauth.py`（授权服务器）、
+`posthouse/mcp_server.py`（MCP）、`posthouse/api.py`（REST）、`posthouse/static/`（管理界面，无需构建）。
 
 ## 许可证
 

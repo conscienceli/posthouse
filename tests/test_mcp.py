@@ -14,7 +14,7 @@ def meta(version=MODERN):
 def test_unauthenticated_gets_oauth_challenge(client):
     r = mcp(client, "tools/list")
     assert r.status_code == 401
-    assert 'resource_metadata="https://caw.test/.well-known/oauth-protected-resource/mcp"' in r.headers["www-authenticate"]
+    assert 'resource_metadata="https://posthouse.test/.well-known/oauth-protected-resource/mcp"' in r.headers["www-authenticate"]
     r = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
                     headers={"Authorization": "Bearer nope"})
     assert r.status_code == 401 and 'error="invalid_token"' in r.headers["www-authenticate"]
@@ -70,7 +70,7 @@ def test_tools_by_role(client, ws):
 
 
 def test_tool_flow(client, ws):
-    H = {**AGENT, "X-CAW-Agent": "Claude"}
+    H = {**AGENT, "X-Posthouse-Agent": "Claude"}
     text, err = call_tool(client, H, "start_session", {"workspace": "demo"})
     assert not err and text.startswith("# Workspace: demo") and "STATUS.md" in text
     text, err = call_tool(client, H, "write_file", {"workspace": "demo", "path": "files/plan.md", "content": "v1"})
@@ -87,7 +87,7 @@ def test_tool_flow(client, ws):
     assert "plan.md" in text
     text, _ = call_tool(client, H, "search", {"query": "more"})
     results = json.loads(text)["results"]
-    assert results[0]["id"] == "demo/plan.md" and results[0]["url"].startswith("https://caw.test/#/w/demo")
+    assert results[0]["id"] == "demo/plan.md" and results[0]["url"].startswith("https://posthouse.test/#/w/demo")
     text, _ = call_tool(client, H, "fetch", {"id": "demo/plan.md"})
     assert json.loads(text)["text"] == "v1.1\nmore"
     text, err = call_tool(client, H, "log_progress", {"workspace": "demo", "summary": "Planned", "next_steps": "Do it",
@@ -136,7 +136,7 @@ def test_url_token(client, ws):
                     headers=basic("admin", "admin-pw-123")).json()
     text, err = call_tool(client, {}, "write_file", {"path": "t.md", "content": "via url"}, path=f"/mcp/t/{t['token']}")
     assert not err
-    assert mcp(client, "tools/list", path="/mcp/t/caw_invalid").status_code == 401
+    assert mcp(client, "tools/list", path="/mcp/t/ph_invalid").status_code == 401
     hist = client.get("/api/workspaces/demo/history", headers=AGENT).json()["commits"]
     assert hist[0]["author"] == "GPT"
 

@@ -8,7 +8,7 @@ import secrets
 from dataclasses import dataclass, field
 from pathlib import Path
 
-log = logging.getLogger("caw")
+log = logging.getLogger("posthouse")
 
 
 def load_dotenv(path: str | os.PathLike = ".env") -> None:
@@ -77,37 +77,37 @@ class Settings:
 
     @property
     def db_path(self) -> Path:
-        return self.data_dir / "caw.sqlite3"
+        return self.data_dir / "posthouse.sqlite3"
 
     @classmethod
     def from_env(cls, **overrides) -> "Settings":
-        data_dir = Path(overrides.pop("data_dir", None) or os.environ.get("CAW_DATA_DIR") or "./data").resolve()
+        data_dir = Path(overrides.pop("data_dir", None) or os.environ.get("POSTHOUSE_DATA_DIR") or "./data").resolve()
         data_dir.mkdir(parents=True, exist_ok=True)
 
-        admin_password = overrides.pop("admin_password", None) or os.environ.get("CAW_ADMIN_PASSWORD", "")
+        admin_password = overrides.pop("admin_password", None) or os.environ.get("POSTHOUSE_ADMIN_PASSWORD", "")
         if not admin_password:
             admin_password = _load_or_create_admin_password(data_dir)
 
         s = cls(
             data_dir=data_dir,
             admin_password=admin_password,
-            agent_password=os.environ.get("CAW_AGENT_PASSWORD", ""),
-            public_url=os.environ.get("CAW_PUBLIC_URL", "").rstrip("/"),
-            host=os.environ.get("CAW_HOST", "0.0.0.0"),
-            port=_int("CAW_PORT", 8080),
-            max_file_bytes=_int("CAW_MAX_FILE_MB", 10) * 1024 * 1024,
-            git_enabled=_bool("CAW_GIT", True),
-            access_token_ttl=_int("CAW_ACCESS_TOKEN_TTL", 3600),
-            refresh_token_ttl=_int("CAW_REFRESH_TOKEN_DAYS", 180) * 24 * 3600,
-            session_ttl=_int("CAW_SESSION_HOURS", 12) * 3600,
-            cookie_secure=os.environ.get("CAW_COOKIE_SECURE", "auto").lower(),
-            login_max_failures=_int("CAW_LOGIN_MAX_FAILURES", 10),
-            login_window_seconds=_int("CAW_LOGIN_WINDOW_SECONDS", 600),
+            agent_password=os.environ.get("POSTHOUSE_AGENT_PASSWORD", ""),
+            public_url=os.environ.get("POSTHOUSE_PUBLIC_URL", "").rstrip("/"),
+            host=os.environ.get("POSTHOUSE_HOST", "0.0.0.0"),
+            port=_int("POSTHOUSE_PORT", 8080),
+            max_file_bytes=_int("POSTHOUSE_MAX_FILE_MB", 10) * 1024 * 1024,
+            git_enabled=_bool("POSTHOUSE_GIT", True),
+            access_token_ttl=_int("POSTHOUSE_ACCESS_TOKEN_TTL", 3600),
+            refresh_token_ttl=_int("POSTHOUSE_REFRESH_TOKEN_DAYS", 180) * 24 * 3600,
+            session_ttl=_int("POSTHOUSE_SESSION_HOURS", 12) * 3600,
+            cookie_secure=os.environ.get("POSTHOUSE_COOKIE_SECURE", "auto").lower(),
+            login_max_failures=_int("POSTHOUSE_LOGIN_MAX_FAILURES", 10),
+            login_window_seconds=_int("POSTHOUSE_LOGIN_WINDOW_SECONDS", 600),
         )
         for k, v in overrides.items():
             setattr(s, k, v)
         if s.agent_password and s.agent_password == s.admin_password:
-            log.warning("CAW_AGENT_PASSWORD equals CAW_ADMIN_PASSWORD; agents will get admin rights.")
+            log.warning("POSTHOUSE_AGENT_PASSWORD equals POSTHOUSE_ADMIN_PASSWORD; agents will get admin rights.")
         return s
 
 
@@ -123,5 +123,5 @@ def _load_or_create_admin_password(data_dir: Path) -> str:
         os.chmod(f, 0o600)
     except OSError:
         pass
-    log.warning("CAW_ADMIN_PASSWORD is not set. Generated one and saved it to %s", f)
+    log.warning("POSTHOUSE_ADMIN_PASSWORD is not set. Generated one and saved it to %s", f)
     return pw

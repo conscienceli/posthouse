@@ -1,4 +1,4 @@
-"""End-to-end: run the real server in a thread and drive it with skills/.../caw.py."""
+"""End-to-end: run the real server in a thread and drive it with skills/.../posthouse.py."""
 
 import importlib.util
 import socket
@@ -9,14 +9,14 @@ from pathlib import Path
 import pytest
 import uvicorn
 
-from caw.app import create_app
-from caw.config import Settings
+from posthouse.app import create_app
+from posthouse.config import Settings
 
-CAW_PY = Path(__file__).resolve().parents[1] / "skills" / "cross-agent-workspace" / "scripts" / "caw.py"
+POSTHOUSE_PY = Path(__file__).resolve().parents[1] / "skills" / "posthouse" / "scripts" / "posthouse.py"
 
 
 def load_cli():
-    spec = importlib.util.spec_from_file_location("caw_cli", CAW_PY)
+    spec = importlib.util.spec_from_file_location("posthouse_cli", POSTHOUSE_PY)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -45,7 +45,7 @@ def server(tmp_path_factory):
 @pytest.fixture
 def run(server, monkeypatch, capsys):
     cli = load_cli()
-    for k in ("CAW_URL", "CAW_USER", "CAW_PASSWORD", "CAW_TOKEN", "CAW_AGENT"):
+    for k in ("POSTHOUSE_URL", "POSTHOUSE_USER", "POSTHOUSE_PASSWORD", "POSTHOUSE_TOKEN", "POSTHOUSE_AGENT"):
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
     monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")

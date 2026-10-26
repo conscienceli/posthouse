@@ -3,7 +3,7 @@ from conftest import ADMIN, ADMIN_PW, AGENT, basic
 
 def test_info_and_me(client):
     info = client.get("/api/info").json()
-    assert info["mcp_url"] == "https://caw.test/mcp" and info["agent_password_enabled"]
+    assert info["mcp_url"] == "https://posthouse.test/mcp" and info["agent_password_enabled"]
     assert client.get("/api/me").json() == {"authenticated": False}
     me = client.get("/api/me", headers=AGENT).json()
     assert me["role"] == "agent" and me["authenticated"]
@@ -30,7 +30,7 @@ def test_levels(client, ws):
 
 
 def test_file_endpoints(client, ws):
-    H = {**basic("demo", "ws-pw"), "X-CAW-Agent": "Tester"}
+    H = {**basic("demo", "ws-pw"), "X-Posthouse-Agent": "Tester"}
     r = client.put("/api/workspaces/demo/file", json={"path": "files/a.md", "content": "hello"}, headers=H)
     v = r.json()["version"]
     assert client.get("/api/workspaces/demo/file", params={"path": "files/a.md"}, headers=H).json()["content"] == "hello"
@@ -43,7 +43,7 @@ def test_file_endpoints(client, ws):
     client.post("/api/workspaces/demo/mkdir", json={"path": "dir"}, headers=H)
     client.post("/api/workspaces/demo/move", json={"source": "files/a.md", "destination": "dir/a.md"}, headers=H)
     raw = client.get("/api/workspaces/demo/raw/dir/a.md", headers=H)
-    assert raw.text == "hi\nmore" and raw.headers["x-caw-version"]
+    assert raw.text == "hi\nmore" and raw.headers["x-posthouse-version"]
     assert client.delete("/api/workspaces/demo/file", params={"path": "dir", "recursive": "true"},
                          headers=H).status_code == 200
     hist = client.get("/api/workspaces/demo/history", headers=H).json()["commits"]
@@ -89,10 +89,10 @@ def test_admin_session_csrf_and_tokens(client, ws):
     assert client.post("/api/login", json={"password": ADMIN_PW}).status_code == 200
     assert client.get("/api/me").json()["role"] == "admin"
     assert client.post("/api/workspaces", json={"name": "y"}).status_code == 403  # missing CSRF header
-    csrf = {"X-CAW-CSRF": "1"}
+    csrf = {"X-Posthouse-CSRF": "1"}
     t = client.post("/api/tokens", json={"name": "ChatGPT", "role": "workspace", "workspace": "demo"},
                     headers=csrf).json()
-    assert t["token"].startswith("caw_") and t["mcp_url_with_token"].endswith(t["token"])
+    assert t["token"].startswith("ph_") and t["mcp_url_with_token"].endswith(t["token"])
     tok = {"Authorization": "Bearer " + t["token"]}
     client.cookies.clear()
     assert [w["name"] for w in client.get("/api/workspaces", headers=tok).json()["workspaces"]] == ["demo"]

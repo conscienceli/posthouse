@@ -7,12 +7,12 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from fastapi.testclient import TestClient
 
-from caw.app import create_app
-from caw.config import Settings
+from posthouse.app import create_app
+from posthouse.config import Settings
 
 ADMIN_PW = "admin-pw-123"
 AGENT_PW = "agent-pw-456"
-BASE = "https://caw.test"
+BASE = "https://posthouse.test"
 
 
 def basic(user: str, password: str) -> dict:

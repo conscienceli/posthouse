@@ -25,7 +25,7 @@ from .config import Settings
 from .db import DB
 from .security import hash_password
 
-log = logging.getLogger("caw.storage")
+log = logging.getLogger("posthouse.storage")
 
 # Workspace names: letters/digits in any script (Chinese is fine), plus . _ -
 NAME_RE = re.compile(r"^[^\W_](?:[\w.\-]{0,62}[^\W_])?$", re.UNICODE)
@@ -146,7 +146,7 @@ class Workspaces:
         env.setdefault("HOME", "/tmp")
         if author:
             safe = re.sub(r"[<>\x00-\x1f\x7f]", "", author).strip()[:80] or "unknown"
-            email = re.sub(r"[^a-zA-Z0-9._-]", "-", safe.lower()) + "@agents.caw"
+            email = re.sub(r"[^a-zA-Z0-9._-]", "-", safe.lower()) + "@agents.posthouse"
             env.update({"GIT_AUTHOR_NAME": safe, "GIT_AUTHOR_EMAIL": email,
                         "GIT_COMMITTER_NAME": safe, "GIT_COMMITTER_EMAIL": email})
         cmd = ["git", "-c", "safe.directory=*", "-c", "core.quotepath=false",
@@ -160,7 +160,7 @@ class Workspaces:
         if not self.git or (d / ".git").exists():
             return
         self._git(d, "init", "-q")
-        self._commit(d, "Initialize workspace", "caw")
+        self._commit(d, "Initialize workspace", "posthouse")
 
     def _commit(self, d: Path, message: str, author: str) -> None:
         if not self.git:
@@ -346,7 +346,7 @@ class Workspaces:
                 dst.mkdir(parents=True)
             meta = {k: ws[k] for k in ("id", "name", "description", "password_hash", "created_at")}
             meta.update({"deleted_at": time.time(), "deleted_by": actor})
-            (dst / ".caw-trash.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+            (dst / ".posthouse-trash.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
             with self.db.transaction() as db:
                 db.execute("DELETE FROM api_tokens WHERE workspace_id=?", (ws["id"],))
                 grants = [g["id"] for g in db.all("SELECT id FROM oauth_grants WHERE workspace_id=?", (ws["id"],))]
@@ -363,7 +363,7 @@ class Workspaces:
             if not d.is_dir():
                 continue
             meta = {}
-            mf = d / ".caw-trash.json"
+            mf = d / ".posthouse-trash.json"
             if mf.is_file():
                 try:
                     meta = json.loads(mf.read_text(encoding="utf-8"))
@@ -389,7 +389,7 @@ class Workspaces:
     def restore(self, trash_id: str, new_name: str | None = None, actor: str = "admin") -> dict:
         d = self._trash_dir(trash_id)
         meta = {}
-        mf = d / ".caw-trash.json"
+        mf = d / ".posthouse-trash.json"
         if mf.is_file():
             meta = json.loads(mf.read_text(encoding="utf-8"))
         name = validate_name(new_name or meta.get("name") or trash_id.split("__")[0])
@@ -505,7 +505,7 @@ class Workspaces:
 
     def _atomic_write(self, p: Path, data: bytes) -> None:
         p.parent.mkdir(parents=True, exist_ok=True)
-        fd, tmp = tempfile.mkstemp(prefix=".caw-", dir=str(p.parent))
+        fd, tmp = tempfile.mkstemp(prefix=".posthouse-", dir=str(p.parent))
         try:
             with os.fdopen(fd, "wb") as f:
                 f.write(data)

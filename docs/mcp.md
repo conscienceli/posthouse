@@ -12,8 +12,8 @@ do when a connection fails.
 | Method | Use it for | What you enter |
 |---|---|---|
 | **OAuth sign-in** (recommended) | Claude, ChatGPT, Gemini web apps; Claude Code, Codex, Gemini CLI | Just the URL. The app opens the server's sign-in page, where you enter a password (and optionally a workspace name to limit the connection) |
-| **Bearer token / Basic auth header** | CLI agents, Cursor, scripts, Claude orgs with *request headers* (beta) | `Authorization: Bearer caw_…` or `Authorization: Basic base64(user:password)` |
-| **Secret token URL** | Apps that accept only a URL with "no authentication" | `https://<domain>/mcp/t/caw_…` (create the token in the UI → Tokens) |
+| **Bearer token / Basic auth header** | CLI agents, Cursor, scripts, Claude orgs with *request headers* (beta) | `Authorization: Bearer ph_…` or `Authorization: Basic base64(user:password)` |
+| **Secret token URL** | Apps that accept only a URL with "no authentication" | `https://<domain>/mcp/t/ph_…` (create the token in the UI → Tokens) |
 
 <img src="images/oauth.png" alt="The sign-in page an app opens" width="380">
 
@@ -23,13 +23,13 @@ signed in with the admin or agent password. Every connection shows up under **Co
 the admin UI, where you can revoke it.
 
 **Change history.** Changes are recorded under the app's name: the OAuth client name (e.g.
-"Claude"), the token name, or the `X-CAW-Agent` header if one is sent.
+"Claude"), the token name, or the `X-Posthouse-Agent` header if one is sent.
 
 ## Claude (claude.ai, Desktop, mobile, Cowork)
 
 1. **Settings → Connectors → Add custom connector.** On Team/Enterprise plans, an Owner adds it
    under *Organization settings → Connectors*, and members then connect.
-2. Name: `Cross-Agent Workspace`. URL: `https://<domain>/mcp`. Leave the OAuth fields empty.
+2. Name: `Posthouse`. URL: `https://<domain>/mcp`. Leave the OAuth fields empty.
    Claude registers itself automatically, either through a client ID metadata document or dynamic
    registration.
 3. Click **Connect**. Enter your password on the sign-in page that opens.
@@ -63,31 +63,31 @@ paste its hand-off note into the workspace yourself.
 ## Claude Code
 
 ```bash
-claude mcp add --transport http caw https://caw.example.com/mcp      # then run /mcp to sign in
+claude mcp add --transport http posthouse https://posthouse.example.com/mcp      # then run /mcp to sign in
 # or with a token instead of OAuth:
-claude mcp add --transport http caw https://caw.example.com/mcp --header "Authorization: Bearer caw_…"
+claude mcp add --transport http posthouse https://posthouse.example.com/mcp --header "Authorization: Bearer ph_…"
 ```
 
 ## Codex CLI
 
 ```bash
-codex mcp add caw --url https://caw.example.com/mcp
-codex mcp login caw                        # OAuth sign-in in the browser
+codex mcp add posthouse --url https://posthouse.example.com/mcp
+codex mcp login posthouse                        # OAuth sign-in in the browser
 ```
 
 Or in `~/.codex/config.toml`:
 
 ```toml
-[mcp_servers.caw]
-url = "https://caw.example.com/mcp"
-bearer_token_env_var = "CAW_TOKEN"          # export CAW_TOKEN=caw_…
-http_headers = { "X-CAW-Agent" = "Codex" }
+[mcp_servers.posthouse]
+url = "https://posthouse.example.com/mcp"
+bearer_token_env_var = "POSTHOUSE_TOKEN"          # export POSTHOUSE_TOKEN=ph_…
+http_headers = { "X-Posthouse-Agent" = "Codex" }
 ```
 
 ## Gemini CLI
 
 ```bash
-gemini mcp add --transport http caw https://caw.example.com/mcp      # then: /mcp auth caw
+gemini mcp add --transport http posthouse https://posthouse.example.com/mcp      # then: /mcp auth posthouse
 ```
 
 Or in `~/.gemini/settings.json`:
@@ -95,9 +95,9 @@ Or in `~/.gemini/settings.json`:
 ```json
 {
   "mcpServers": {
-    "caw": {
-      "httpUrl": "https://caw.example.com/mcp",
-      "headers": { "Authorization": "Bearer caw_…", "X-CAW-Agent": "Gemini CLI" }
+    "posthouse": {
+      "httpUrl": "https://posthouse.example.com/mcp",
+      "headers": { "Authorization": "Bearer ph_…", "X-Posthouse-Agent": "Gemini CLI" }
     }
   }
 }
@@ -108,8 +108,8 @@ Or in `~/.gemini/settings.json`:
 Most clients accept a URL plus headers, for example in Cursor's `.cursor/mcp.json`:
 
 ```json
-{ "mcpServers": { "caw": { "url": "https://caw.example.com/mcp",
-  "headers": { "Authorization": "Bearer caw_…" } } } }
+{ "mcpServers": { "posthouse": { "url": "https://posthouse.example.com/mcp",
+  "headers": { "Authorization": "Bearer ph_…" } } } }
 ```
 
 Clients that support MCP OAuth can also connect with just the URL.
@@ -154,7 +154,7 @@ A credential limited to one workspace may omit `workspace`; it defaults to that 
 | Symptom | Likely cause / fix |
 |---|---|
 | "Couldn't reach the MCP server" | The URL is not public HTTPS on 443, there is a certificate problem, or a firewall blocks the platform's IP ranges. Run `curl -i https://<domain>/mcp`: it should return `401` with a `WWW-Authenticate` header |
-| Sign-in page shows `http://` or a wrong host in links | Set `CAW_PUBLIC_URL=https://<domain>` in `.env` and restart. Behind your own proxy, also forward `X-Forwarded-Proto` |
+| Sign-in page shows `http://` or a wrong host in links | Set `POSTHOUSE_PUBLIC_URL=https://<domain>` in `.env` and restart. Behind your own proxy, also forward `X-Forwarded-Proto` |
 | "Unknown client_id" on the sign-in page | The app's registration was purged or the server's data was reset. Remove and re-add the connector |
 | Sign-in keeps failing | Wrong password, or more than 10 failures within 10 minutes (rate limit). Wait or restart the server |
 | Tools appear but every call says "not found or not accessible" | The connection is limited to one workspace. Check **Connected apps** in the UI |

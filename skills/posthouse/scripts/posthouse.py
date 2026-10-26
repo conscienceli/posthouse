@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-"""caw.py - command-line client for a Cross-Agent Workspace server (Python 3.8+, stdlib only).
+"""posthouse.py - command-line client for a Posthouse server (Python 3.8+, stdlib only).
 
 Credentials come from flags, then environment variables:
-  CAW_URL       server base URL, e.g. https://caw.example.com
-  CAW_USER      'agent', 'admin' or a workspace name (for Basic auth with a password)
-  CAW_PASSWORD  the matching password
-  CAW_TOKEN     an access token (caw_...) instead of user/password
-  CAW_AGENT     your name, recorded as the author of changes (e.g. "Claude Cowork")
+  POSTHOUSE_URL       server base URL, e.g. https://posthouse.example.com
+  POSTHOUSE_USER      'agent', 'admin' or a workspace name (for Basic auth with a password)
+  POSTHOUSE_PASSWORD  the matching password
+  POSTHOUSE_TOKEN     an access token (ph_...) instead of user/password
+  POSTHOUSE_AGENT     your name, recorded as the author of changes (e.g. "Claude Cowork")
 
 Examples:
-  caw.py ls
-  caw.py start my-project
-  caw.py read my-project STATUS.md
-  echo "# Status ..." | caw.py write my-project STATUS.md --expect 1a2b3c4d5e6f7a8b
-  caw.py edit my-project STATUS.md --old "- [ ] draft" --new "- [x] draft"
-  caw.py log my-project --summary "Drafted section 2" --next "Review section 3"
+  posthouse.py ls
+  posthouse.py start my-project
+  posthouse.py read my-project STATUS.md
+  echo "# Status ..." | posthouse.py write my-project STATUS.md --expect 1a2b3c4d5e6f7a8b
+  posthouse.py edit my-project STATUS.md --old "- [ ] draft" --new "- [x] draft"
+  posthouse.py log my-project --summary "Drafted section 2" --next "Review section 3"
 """
 
 from __future__ import annotations
@@ -30,11 +30,11 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 EXIT_CONFLICT = 3
 
 
-class CawError(Exception):
+class PosthouseError(Exception):
     def __init__(self, status: int, message: str, data: dict | None = None):
         super().__init__(message)
         self.status = status
@@ -45,16 +45,16 @@ class CawError(Exception):
 class Client:
     def __init__(self, url: str, user: str | None, password: str | None, token: str | None, agent: str | None):
         if not url:
-            raise SystemExit("caw: no server URL. Set CAW_URL or pass --url.")
+            raise SystemExit("posthouse: no server URL. Set POSTHOUSE_URL or pass --url.")
         self.base = url.rstrip("/")
-        self.headers = {"User-Agent": f"caw.py/{__version__}"}
+        self.headers = {"User-Agent": f"posthouse.py/{__version__}"}
         if token:
             self.headers["Authorization"] = "Bearer " + token
         elif password:
             raw = f"{user or 'agent'}:{password}".encode("utf-8")
             self.headers["Authorization"] = "Basic " + base64.b64encode(raw).decode("ascii")
         if agent:
-            self.headers["X-CAW-Agent"] = agent
+            self.headers["X-Posthouse-Agent"] = agent
 
     def request(self, method: str, path: str, *, query: dict | None = None, body=None, raw: bytes | None = None,
                 headers: dict | None = None, want_raw: bool = False):
@@ -87,9 +87,9 @@ class Client:
                 info = json.loads(text)
             except ValueError:
                 info = {"message": text or e.reason}
-            raise CawError(e.code, info.get("message") or str(info), info) from None
+            raise PosthouseError(e.code, info.get("message") or str(info), info) from None
         except urllib.error.URLError as e:
-            raise CawError(0, f"cannot reach {self.base}: {e.reason}") from None
+            raise PosthouseError(0, f"cannot reach {self.base}: {e.reason}") from None
 
 
 def ws_path(ws: str) -> str:
@@ -159,7 +159,7 @@ def cmd_read(c: Client, a):
         print(f"version: {data['version']}", file=sys.stderr)
         return out(data["content"])
     payload, headers = c.request("GET", file_url(a.workspace, a.path), query={"revision": a.rev}, want_raw=True)
-    print(f"version: {headers.get('X-CAW-Version') or headers.get('x-caw-version')}", file=sys.stderr)
+    print(f"version: {headers.get('X-Posthouse-Version') or headers.get('x-posthouse-version')}", file=sys.stderr)
     sys.stdout.buffer.write(payload)
     if payload and not payload.endswith(b"\n"):
         sys.stdout.write("\n")
@@ -173,7 +173,7 @@ def cmd_write(c: Client, a):
     if a.new:
         h["If-None-Match"] = "*"
     if a.message:
-        h["X-CAW-Message"] = a.message
+        h["X-Posthouse-Message"] = a.message
     out(c.request("PUT", file_url(a.workspace, a.path), raw=data, headers=h))
 
 
@@ -186,7 +186,7 @@ def _text_arg(text: str | None, path: str | None, name: str) -> str:
         with open(path, "r", encoding="utf-8") as f:
             return f.read()
     if text is None:
-        raise SystemExit(f"caw: --{name} or --{name}-file is required")
+        raise SystemExit(f"posthouse: --{name} or --{name}-file is required")
     return text
 
 
@@ -244,7 +244,7 @@ def cmd_pull(c: Client, a):
         for m in z.namelist():
             target = os.path.realpath(os.path.join(dest, m))
             if not target.startswith(os.path.realpath(dest) + os.sep):
-                raise SystemExit(f"caw: refusing unsafe path in archive: {m}")
+                raise SystemExit(f"posthouse: refusing unsafe path in archive: {m}")
         z.extractall(dest)
     print(f"extracted to {os.path.join(dest, a.workspace)}")
 
@@ -257,13 +257,13 @@ def cmd_push(c: Client, a):
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="caw.py", description="Cross-Agent Workspace client",
+    p = argparse.ArgumentParser(prog="posthouse.py", description="Posthouse client",
                                 formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__.split("\n\n", 1)[1])
-    p.add_argument("--url", default=os.environ.get("CAW_URL"))
-    p.add_argument("--user", default=os.environ.get("CAW_USER"))
-    p.add_argument("--password", default=os.environ.get("CAW_PASSWORD"))
-    p.add_argument("--token", default=os.environ.get("CAW_TOKEN"))
-    p.add_argument("--agent", default=os.environ.get("CAW_AGENT"), help="author name recorded with changes")
+    p.add_argument("--url", default=os.environ.get("POSTHOUSE_URL"))
+    p.add_argument("--user", default=os.environ.get("POSTHOUSE_USER"))
+    p.add_argument("--password", default=os.environ.get("POSTHOUSE_PASSWORD"))
+    p.add_argument("--token", default=os.environ.get("POSTHOUSE_TOKEN"))
+    p.add_argument("--agent", default=os.environ.get("POSTHOUSE_AGENT"), help="author name recorded with changes")
     p.add_argument("--version", action="version", version=__version__)
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -318,12 +318,12 @@ def main(argv=None) -> int:
     try:
         a.fn(c, a)
         return 0
-    except CawError as e:
-        print(f"caw: error {e.status}: {e.message}", file=sys.stderr)
+    except PosthouseError as e:
+        print(f"posthouse: error {e.status}: {e.message}", file=sys.stderr)
         if e.status == 409:
             cur = e.data.get("current_version")
             if cur:
-                print(f"caw: current version is {cur}; re-read the file and apply your change again", file=sys.stderr)
+                print(f"posthouse: current version is {cur}; re-read the file and apply your change again", file=sys.stderr)
             return EXIT_CONFLICT
         return 1
 

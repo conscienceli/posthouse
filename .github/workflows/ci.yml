@@ -29,12 +29,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker build -t cross-agent-workspace:ci .
+      - run: docker build -t posthouse:ci .
       - name: Smoke test the image
         run: |
-          docker run -d --name caw -p 8080:8080 -e CAW_ADMIN_PASSWORD=ci-admin cross-agent-workspace:ci
+          docker run -d --name posthouse -p 8080:8080 -e POSTHOUSE_ADMIN_PASSWORD=ci-admin posthouse:ci
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/healthz && break; sleep 1; done
           curl -fsS -u admin:ci-admin -X POST -H 'Content-Type: application/json' \
                -d '{"name":"ci"}' http://127.0.0.1:8080/api/workspaces
           curl -fsS -u admin:ci-admin http://127.0.0.1:8080/api/workspaces/ci/history
-          docker logs caw
+          docker logs posthouse

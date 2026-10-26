@@ -1,4 +1,4 @@
-/* Cross-Agent Workspace admin UI — dependency-free single-page app. */
+/* Posthouse admin UI — dependency-free single-page app. */
 (function () {
   'use strict';
 
@@ -26,7 +26,7 @@
     } catch (e) { /* keep the default list */ }
     await loadLang('en');
     let saved = null;
-    try { saved = localStorage.getItem('caw.lang'); } catch (e) { /* storage unavailable */ }
+    try { saved = localStorage.getItem('posthouse.lang'); } catch (e) { /* storage unavailable */ }
     if (saved === 'zh') saved = 'zh-CN';  // value used by early versions
     if (saved && saved !== 'en' && LANGS.some((l) => l.code === saved) && (await loadLang(saved))) lang = saved;
     document.documentElement.lang = lang;
@@ -41,7 +41,7 @@
   async function setLang(code) {
     if (!(await loadLang(code))) { toast('Language file not found: ' + code, true); return; }
     lang = code;
-    try { localStorage.setItem('caw.lang', code); } catch (e) { /* ignore */ }
+    try { localStorage.setItem('posthouse.lang', code); } catch (e) { /* ignore */ }
     document.documentElement.lang = code;
     render();
   }
@@ -87,7 +87,7 @@
   // ------------------------------------------------------------------- API
   async function api(method, path, body, opts) {
     opts = opts || {};
-    const headers = { 'X-CAW-CSRF': '1' };
+    const headers = { 'X-Posthouse-CSRF': '1' };
     let payload;
     if (opts.form) payload = opts.form;
     else if (body !== undefined) { headers['Content-Type'] = 'application/json'; payload = JSON.stringify(body); }
@@ -237,6 +237,7 @@
 
   async function render() {
     const seq = ++renderSeq;
+    document.title = t('app.name');
     if (!state.checked) {
       try { state.info = await api('GET', '/api/info'); } catch (e) { state.info = null; }
       try { state.me = await api('GET', '/api/me'); } catch (e) { state.me = null; }
@@ -294,8 +295,9 @@
     };
     $app.replaceChildren(h('div', { class: 'login-wrap' },
       h('form', { class: 'card login stack', onsubmit: submit },
-        h('div', { class: 'brand' }, h('img', { src: '/static/favicon.svg', alt: '' }), t('app.name')),
-        h('h1', null, t('login.title')), h('p', { class: 'muted' }, t('login.subtitle')),
+        h('div', null, h('div', { class: 'brand', style: 'margin-bottom:2px' }, h('img', { src: '/static/favicon.svg', alt: '' }), t('app.name')),
+          h('div', { class: 'small muted' }, t('app.tagline'))),
+        h('h1', { style: 'padding-top:8px' }, t('login.title')), h('p', { class: 'muted' }, t('login.subtitle')),
         h('label', { class: 'field' }, h('span', null, t('login.password')), pw), err,
         h('div', { class: 'row' },
           h('button', { class: 'btn primary', type: 'submit' }, t('login.submit')), h('div', { class: 'grow' }),
@@ -718,9 +720,9 @@
     const mcp = base + '/mcp';
     const wsLabel = wsName || '<workspace>';
     const user = wsName || 'agent';
-    const envSnippet = 'export CAW_URL="' + base + '"\nexport CAW_USER="' + user + '"\nexport CAW_PASSWORD="<' + (wsName ? 'workspace' : 'agent') + ' password>"\n'
-      + 'python3 caw.py start ' + (wsName || '<workspace>');
-    const curlSnippet = 'curl -u "' + user + ':$CAW_PASSWORD" "' + base + '/api/workspaces/' + enc(wsLabel) + '/session?format=md"';
+    const envSnippet = 'export POSTHOUSE_URL="' + base + '"\nexport POSTHOUSE_USER="' + user + '"\nexport POSTHOUSE_PASSWORD="<' + (wsName ? 'workspace' : 'agent') + ' password>"\n'
+      + 'python3 posthouse.py start ' + (wsName || '<workspace>');
+    const curlSnippet = 'curl -u "' + user + ':$POSTHOUSE_PASSWORD" "' + base + '/api/workspaces/' + enc(wsLabel) + '/session?format=md"';
     const tokenBtn = h('button', { class: 'btn', onclick: () => createTokenDialog(wsName) }, '+ ' + t('connect.createToken'));
     return h('div', { class: 'stack', style: 'max-width:900px' },
       h('p', { class: 'muted', style: 'margin-top:0' }, t('connect.intro')),
@@ -732,11 +734,11 @@
       h('div', { class: 'card stack' }, h('h3', null, t('connect.tokenTitle')), h('p', { class: 'muted', style: 'margin:0' }, t('connect.tokenText')),
         h('div', null, tokenBtn)),
       h('div', { class: 'card stack' }, h('h3', null, t('connect.headerTitle')),
-        copyBox('Authorization: Basic base64("' + user + ':<password>")\nAuthorization: Bearer caw_…   (token)\nX-CAW-Agent: Claude Code   (optional author name)', true)),
+        copyBox('Authorization: Basic base64("' + user + ':<password>")\nAuthorization: Bearer ph_…   (token)\nX-Posthouse-Agent: Claude Code   (optional author name)', true)),
       h('div', { class: 'card stack' }, h('h3', null, t('connect.skillTitle')), h('p', { class: 'muted', style: 'margin:0' }, t('connect.skillText')),
         copyBox(envSnippet, true), copyBox(curlSnippet, true)),
       h('div', { class: 'card stack' }, h('h3', null, t('connect.promptTitle')), copyBox(t('connect.prompt', { ws: wsLabel }), true)),
-      h('p', null, h('a', { href: 'https://github.com/conscienceli/cross-agent-workspace#readme', target: '_blank', rel: 'noopener' }, t('connect.docs') + ' ↗')));
+      h('p', null, h('a', { href: 'https://github.com/conscienceli/posthouse#readme', target: '_blank', rel: 'noopener' }, t('connect.docs') + ' ↗')));
   }
   async function tabConnect(ws) { return connectGuide(ws.name); }
   async function pageConnect() {

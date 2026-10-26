@@ -23,7 +23,7 @@ from .mcp_server import router as mcp_router
 from .oauth import router as oauth_router
 from .storage import StorageError, Workspaces
 
-log = logging.getLogger("caw")
+log = logging.getLogger("posthouse")
 STATIC_DIR = Path(__file__).parent / "static"
 
 UI_CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
@@ -51,7 +51,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         yield
         task.cancel()
 
-    app = FastAPI(title="Cross-Agent Workspace", version=__version__, lifespan=lifespan,
+    app = FastAPI(title="Posthouse", version=__version__, lifespan=lifespan,
                   docs_url="/api/docs", redoc_url=None, openapi_url="/api/openapi.json")
     app.state.ctx = ctx
 

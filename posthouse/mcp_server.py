@@ -21,17 +21,17 @@ from .auth import AuthError, Principal
 from .deps import Ctx, base_url, client_key, get_ctx
 from .storage import NotFound, StorageError
 
-log = logging.getLogger("caw.mcp")
+log = logging.getLogger("posthouse.mcp")
 router = APIRouter()
 
 MODERN_VERSIONS = ["2026-07-28"]
 LEGACY_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"]
 ALL_VERSIONS = MODERN_VERSIONS + LEGACY_VERSIONS
 META_VERSION = "io.modelcontextprotocol/protocolVersion"
-SERVER_INFO = {"name": "cross-agent-workspace", "title": "Cross-Agent Workspace", "version": __version__}
+SERVER_INFO = {"name": "posthouse", "title": "Posthouse", "version": __version__}
 LIST_TTL_MS = 60_000
 
-INSTRUCTIONS = """Cross-Agent Workspace: shared project files and memory used by several AI agents and a human.
+INSTRUCTIONS = """Posthouse: shared project files and memory used by several AI agents and a human.
 - At the start of a conversation about a project, call start_session(workspace) to load the project guide (AGENTS.md), current status (STATUS.md), recent hand-off notes and the file list. If you do not know the workspace name, call list_workspaces.
 - Keep STATUS.md short and current. Append decisions to DECISIONS.md. Put long-lived facts in memory/.
 - When overwriting a file that others may edit, pass expected_version from your last read_file; on a conflict, re-read and re-apply.
@@ -449,10 +449,10 @@ def handle_message(ctx: Ctx, request: Request, p: Principal, msg: Any) -> tuple[
         if version not in MODERN_VERSIONS:
             return _rpc_error(msg.get("id"), UNSUPPORTED_VERSION, "Unsupported protocol version",
                               {"supported": ALL_VERSIONS, "requested": version}), 400
-        # Without an explicit X-CAW-Agent header, name the author after the MCP client.
+        # Without an explicit X-Posthouse-Agent header, name the author after the MCP client.
         info = meta.get("io.modelcontextprotocol/clientInfo")
         if (isinstance(info, dict) and info.get("name") and p.via == "basic"
-                and not request.headers.get("x-caw-agent")):
+                and not request.headers.get("x-posthouse-agent")):
             from .auth import clean_actor
             p.actor = clean_actor(str(info.get("title") or info["name"])) or p.actor
     return _dispatch(ctx, request, p, msg, modern)
@@ -495,7 +495,7 @@ async def mcp_post(request: Request):
     ctx = get_ctx(request)
     try:
         p = await run_in_threadpool(ctx.auth.from_headers, request.headers.get("authorization", ""), None,
-                                    client_key(request), request.headers.get("x-caw-agent"))
+                                    client_key(request), request.headers.get("x-posthouse-agent"))
     except AuthError as e:
         if e.status == 429:
             return _unauthorized(request, e.message, 429)
@@ -509,12 +509,12 @@ async def mcp_post(request: Request):
 async def mcp_post_url_token(request: Request, token: str):
     """For apps that can only be given a URL (no headers, no OAuth): the API token is in the path."""
     ctx = get_ctx(request)
-    p = ctx.auth.principal_from_token(token) if token.startswith("caw_") else None
+    p = ctx.auth.principal_from_token(token) if token.startswith("ph_") else None
     if p is None:
         return JSONResponse({"jsonrpc": "2.0", "id": None, "error": {"code": -32001, "message": "Invalid token."}},
                             status_code=401)
     p.via = "url_token"
-    agent = request.headers.get("x-caw-agent")
+    agent = request.headers.get("x-posthouse-agent")
     if agent:
         from .auth import clean_actor
         p.actor = clean_actor(agent) or p.actor

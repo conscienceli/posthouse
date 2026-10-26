@@ -2,15 +2,15 @@ import re
 import time
 from urllib.parse import parse_qs, urlparse
 
-from caw import oauth
+from posthouse import oauth
 from conftest import ADMIN, ADMIN_PW, AGENT_PW, call_tool, oauth_login, pkce_pair
 
 
 def test_metadata(client):
     prm = client.get("/.well-known/oauth-protected-resource/mcp").json()
-    assert prm["resource"] == "https://caw.test/mcp" and prm["authorization_servers"] == ["https://caw.test"]
+    assert prm["resource"] == "https://posthouse.test/mcp" and prm["authorization_servers"] == ["https://posthouse.test"]
     asm = client.get("/.well-known/oauth-authorization-server").json()
-    assert asm["issuer"] == "https://caw.test"
+    assert asm["issuer"] == "https://posthouse.test"
     assert asm["code_challenge_methods_supported"] == ["S256"]
     assert asm["client_id_metadata_document_supported"] is True
     assert "none" in asm["token_endpoint_auth_methods_supported"]
@@ -20,8 +20,8 @@ def test_metadata(client):
 def test_public_url_overrides_host(tmp_path):
     from fastapi.testclient import TestClient
 
-    from caw.app import create_app
-    from caw.config import Settings
+    from posthouse.app import create_app
+    from posthouse.config import Settings
     s = Settings.from_env(data_dir=str(tmp_path / "d"), admin_password="x")
     s.public_url = "https://public.example"
     with TestClient(create_app(s), base_url="http://internal:8080") as c:
@@ -72,7 +72,7 @@ def test_wrong_password_deny_and_bad_verifier(client):
     assert r.status_code == 200 and "Invalid credentials" in r.text
     r = client.post("/oauth/authorize", data={"request_id": rid, "action": "deny"}, follow_redirects=False)
     q = parse_qs(urlparse(r.headers["location"]).query)
-    assert q["error"] == ["access_denied"] and q["iss"] == ["https://caw.test"]
+    assert q["error"] == ["access_denied"] and q["iss"] == ["https://posthouse.test"]
     reg, verifier, rid = _start(client)
     r = client.post("/oauth/authorize", data={"request_id": rid, "password": AGENT_PW, "action": "approve"},
                     follow_redirects=False)

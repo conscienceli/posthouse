@@ -48,14 +48,14 @@ ensure_env() {
     chmod 600 "$ENV_FILE" 2>/dev/null || true
     info "Created .env from .env.example"
   fi
-  if [ -z "$(get_env CAW_ADMIN_PASSWORD)" ]; then
-    set_env CAW_ADMIN_PASSWORD "$(rand_secret 24)"
-    info "Generated CAW_ADMIN_PASSWORD"
+  if [ -z "$(get_env POSTHOUSE_ADMIN_PASSWORD)" ]; then
+    set_env POSTHOUSE_ADMIN_PASSWORD "$(rand_secret 24)"
+    info "Generated POSTHOUSE_ADMIN_PASSWORD"
   fi
-  if ! grep -qE '^CAW_AGENT_PASSWORD=' "$ENV_FILE" || [ -z "$(get_env CAW_AGENT_PASSWORD)" ]; then
-    if [ "${CAW_NO_AGENT_PASSWORD:-0}" != "1" ]; then
-      set_env CAW_AGENT_PASSWORD "$(rand_secret 24)"
-      info "Generated CAW_AGENT_PASSWORD"
+  if ! grep -qE '^POSTHOUSE_AGENT_PASSWORD=' "$ENV_FILE" || [ -z "$(get_env POSTHOUSE_AGENT_PASSWORD)" ]; then
+    if [ "${POSTHOUSE_NO_AGENT_PASSWORD:-0}" != "1" ]; then
+      set_env POSTHOUSE_AGENT_PASSWORD "$(rand_secret 24)"
+      info "Generated POSTHOUSE_AGENT_PASSWORD"
     fi
   fi
 }
@@ -63,13 +63,13 @@ ensure_env() {
 print_summary() {  # print_summary BASE_URL
   local base="$1"
   echo
-  printf '%s%s%s\n' "$C_BOLD" "Cross-Agent Workspace is running" "$C_RESET"
+  printf '%s%s%s\n' "$C_BOLD" "Posthouse is running" "$C_RESET"
   echo "  Admin UI        : $base/"
   echo "  MCP endpoint    : $base/mcp"
   echo "  REST API docs   : $base/api/docs"
-  echo "  Admin password  : $(get_env CAW_ADMIN_PASSWORD)"
-  if [ -n "$(get_env CAW_AGENT_PASSWORD)" ]; then
-    echo "  Agent password  : $(get_env CAW_AGENT_PASSWORD)"
+  echo "  Admin password  : $(get_env POSTHOUSE_ADMIN_PASSWORD)"
+  if [ -n "$(get_env POSTHOUSE_AGENT_PASSWORD)" ]; then
+    echo "  Agent password  : $(get_env POSTHOUSE_AGENT_PASSWORD)"
   fi
   echo "  Data directory  : $ROOT_DIR/data   (passwords are stored in $ENV_FILE)"
   echo

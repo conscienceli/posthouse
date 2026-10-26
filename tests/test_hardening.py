@@ -3,8 +3,8 @@
 import logging
 import re
 
-from caw import oauth
-from caw.__main__ import RedactTokens
+from posthouse import oauth
+from posthouse.__main__ import RedactTokens
 from conftest import ADMIN, AGENT, AGENT_PW, basic, mcp, pkce_pair
 
 
@@ -35,9 +35,9 @@ def test_success_does_not_reset_failures(client, ws):
 
 def test_url_tokens_are_redacted_from_access_log():
     rec = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, '%s - "%s %s HTTP/%s" %d',
-                            ("1.2.3.4:5", "POST", "/mcp/t/caw_SECRET123", "1.1", 200), None)
+                            ("1.2.3.4:5", "POST", "/mcp/t/ph_SECRET123", "1.1", 200), None)
     RedactTokens().filter(rec)
-    assert "caw_SECRET123" not in rec.getMessage() and "/mcp/t/***" in rec.getMessage()
+    assert "ph_SECRET123" not in rec.getMessage() and "/mcp/t/***" in rec.getMessage()
 
 
 def test_stale_workspace_record_cannot_resurrect_folder(app, ws):
@@ -45,7 +45,7 @@ def test_stale_workspace_record_cannot_resurrect_folder(app, ws):
     stale = store.get("demo")
     store.delete("demo")
     import pytest
-    from caw.storage import NotFound
+    from posthouse.storage import NotFound
     with pytest.raises(NotFound):
         store.write(stale, "x.md", b"late write")
     assert not (store.root / "demo").exists()

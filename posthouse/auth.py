@@ -2,8 +2,8 @@
 
 Levels
 ------
-admin      CAW_ADMIN_PASSWORD  - everything, including the admin UI and deleting workspaces
-agent      CAW_AGENT_PASSWORD  - list/create workspaces, read & write files in every workspace
+admin      POSTHOUSE_ADMIN_PASSWORD  - everything, including the admin UI and deleting workspaces
+agent      POSTHOUSE_AGENT_PASSWORD  - list/create workspaces, read & write files in every workspace
 workspace  per-workspace pwd   - read & write files in that one workspace
 """
 
@@ -21,8 +21,8 @@ from .db import DB
 from .security import RateLimiter, constant_eq, new_token, token_hash, verify_password
 from .storage import NotFound, Workspaces
 
-SESSION_COOKIE = "caw_session"
-API_TOKEN_PREFIX = "caw_"
+SESSION_COOKIE = "posthouse_session"
+API_TOKEN_PREFIX = "ph_"
 
 
 class AuthError(Exception):

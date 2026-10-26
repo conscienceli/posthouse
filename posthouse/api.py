@@ -1,4 +1,4 @@
-"""REST API used by the admin UI, the skill (caw.py / curl) and any HTTP client."""
+"""REST API used by the admin UI, the skill (posthouse.py / curl) and any HTTP client."""
 
 from __future__ import annotations
 
@@ -32,14 +32,14 @@ def principal(request: Request) -> Principal:
     try:
         p = ctx.auth.from_headers(request.headers.get("authorization", ""),
                                   request.cookies.get(SESSION_COOKIE), client_key(request),
-                                  request.headers.get("x-caw-agent"))
+                                  request.headers.get("x-posthouse-agent"))
     except AuthError as e:
         raise HTTPException(e.status, {"error": "unauthorized", "message": e.message})
     if p is None:
         raise HTTPException(401, {"error": "unauthorized", "message": "Authentication required."},
-                            headers={"WWW-Authenticate": 'Bearer realm="caw"'})
+                            headers={"WWW-Authenticate": 'Bearer realm="posthouse"'})
     if p.via == "session" and request.method not in ("GET", "HEAD", "OPTIONS"):
-        if request.headers.get("x-caw-csrf") != "1":
+        if request.headers.get("x-posthouse-csrf") != "1":
             raise HTTPException(403, {"error": "forbidden", "message": "Missing CSRF header."})
     return p
 
@@ -132,7 +132,7 @@ class RestoreIn(BaseModel):
 def info(request: Request):
     ctx = get_ctx(request)
     base = base_url(request)
-    return {"name": "Cross-Agent Workspace", "version": __version__, "base_url": base,
+    return {"name": "Posthouse", "version": __version__, "base_url": base,
             "mcp_url": f"{base}/mcp", "agent_password_enabled": bool(ctx.settings.agent_password),
             "git": ctx.store.git, "max_file_mb": ctx.settings.max_file_bytes // (1024 * 1024)}
 
@@ -171,7 +171,7 @@ def me(request: Request):
     try:
         p = ctx.auth.from_headers(request.headers.get("authorization", ""),
                                   request.cookies.get(SESSION_COOKIE), client_key(request),
-                                  request.headers.get("x-caw-agent"))
+                                  request.headers.get("x-posthouse-agent"))
     except AuthError as e:
         raise HTTPException(e.status, {"error": "unauthorized", "message": e.message})
     if p is None:
@@ -298,7 +298,7 @@ def raw_get(name: str, path: str, request: Request, revision: Optional[str] = No
     else:
         ctype, inline = "application/octet-stream", False
     fname = quote(path.rsplit("/", 1)[-1])
-    headers = {"X-CAW-Version": ver, "ETag": f'"{ver}"', "Cache-Control": "no-store",
+    headers = {"X-Posthouse-Version": ver, "ETag": f'"{ver}"', "Cache-Control": "no-store",
                "Content-Disposition": f"{'inline' if inline else 'attachment'}; filename*=UTF-8''{fname}"}
     return Response(data, media_type=ctype, headers=headers)
 
@@ -318,7 +318,7 @@ async def raw_put(name: str, path: str, request: Request, append: bool = False,
     expected = (request.headers.get("if-match") or "").strip().strip('"') or None
     if request.headers.get("if-none-match", "").strip() == "*":
         expected = "new"
-    msg = request.headers.get("x-caw-message")
+    msg = request.headers.get("x-posthouse-message")
     return await run_in_threadpool(ctx.store.write, ws, path, data, expected, actor=p.actor, message=msg)
 
 
