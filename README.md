@@ -71,25 +71,29 @@ your server. Agents reach it in three ways:
 git clone https://github.com/conscienceli/posthouse.git
 cd posthouse
 
-./scripts/docker-start.sh                              # http://<server>:8080
-# or, with a domain pointing at this server (needed by Claude/ChatGPT/Gemini on the web):
-./scripts/docker-start.sh --domain posthouse.example.com     # https://posthouse.example.com (Let's Encrypt)
+# Pick the line that matches your server (Claude/ChatGPT/Gemini on the web need public HTTPS):
+./scripts/docker-start.sh --domain posthouse.example.com                # ports 80/443 free: built-in HTTPS
+./scripts/docker-start.sh --behind-proxy https://posthouse.example.com  # nginx or Cloudflare already in front
+./scripts/docker-start.sh --behind-proxy https://posthouse.example.com --tunnel-token <TOKEN>  # Cloudflare Tunnel
+./scripts/docker-start.sh                                               # plain HTTP on :8080 for testing
 ```
 
 The script creates `.env` with random admin and agent passwords, builds the image, starts the
 container and prints the URLs and passwords. Other commands: `logs`, `status`, `restart`,
-`stop`, `update` and `passwords`. Data lives in `./data`.
+`stop`, `update` and `passwords`. Data lives in `./data`. Step-by-step guides for an existing nginx
+and for Cloudflare (Tunnel, Full (strict), Flexible) are in [docs/deploy.md](docs/deploy.md).
 
 ### Without Docker
 
 ```bash
 ./scripts/install.sh                 # Python venv + dependencies + .env
 ./scripts/run.sh                     # run in the foreground
-sudo ./scripts/install.sh --systemd  # or install as a systemd service
+sudo ./scripts/install.sh --systemd --behind-proxy https://posthouse.example.com   # systemd service behind nginx
 ```
 
-Requirements: Linux, Python 3.10+, and `git` (optional; it powers history). Put it behind
-HTTPS on port 443 with your own proxy; examples are in [docs/deploy.md](docs/deploy.md).
+Requirements: Linux, Python 3.10+, and `git` (optional; it powers history). nginx examples:
+[`deploy/nginx.conf.example`](deploy/nginx.conf.example) and
+[`deploy/nginx-cloudflare.conf.example`](deploy/nginx-cloudflare.conf.example).
 
 > **Web apps need public HTTPS.** Claude, ChatGPT and Gemini connect from their own cloud, so the
 > server must be reachable at `https://…` on port 443. See [docs/deploy.md](docs/deploy.md),

@@ -65,24 +65,27 @@ Posthouse（驿站）给每个项目一个**工作区**：就是你服务器上�
 git clone https://github.com/conscienceli/posthouse.git
 cd posthouse
 
-./scripts/docker-start.sh                              # http://<服务器>:8080
-# 或者，若已有域名解析到这台服务器（网页版 Claude/ChatGPT/Gemini 需要 HTTPS）：
-./scripts/docker-start.sh --domain posthouse.example.com     # https://posthouse.example.com（Let's Encrypt 证书）
+# 按你的服务器情况选一行（网页版 Claude/ChatGPT/Gemini 需要公网 HTTPS）：
+./scripts/docker-start.sh --domain posthouse.example.com                # 80/443 端口空闲：自带 HTTPS
+./scripts/docker-start.sh --behind-proxy https://posthouse.example.com  # 前面已有 Nginx 或 Cloudflare
+./scripts/docker-start.sh --behind-proxy https://posthouse.example.com --tunnel-token <令牌>  # Cloudflare Tunnel
+./scripts/docker-start.sh                                               # 测试用：HTTP，端口 8080
 ```
 
 脚本会创建 `.env` 并随机生成管理员密码和智能体密码，然后构建镜像、启动容器，最后打印访问地址和密码。
 其他命令：`logs`、`status`、`restart`、`stop`、`update`、`passwords`。数据保存在 `./data`。
+接入现有 Nginx、以及 Cloudflare（Tunnel、Full (strict)、Flexible）的分步说明见 [docs/deploy.md](docs/deploy.md)。
 
 ### 不使用 Docker
 
 ```bash
 ./scripts/install.sh                 # 创建 Python 虚拟环境、安装依赖、生成 .env
 ./scripts/run.sh                     # 前台运行
-sudo ./scripts/install.sh --systemd  # 或安装为 systemd 服务（开机自启）
+sudo ./scripts/install.sh --systemd --behind-proxy https://posthouse.example.com   # systemd 服务，放在 Nginx 后面
 ```
 
-环境要求：Linux、Python 3.10+、`git`（可选，用于历史记录）。请用你自己的反向代理在 443 端口提供 HTTPS，
-示例见 [docs/deploy.md](docs/deploy.md)。
+环境要求：Linux、Python 3.10+、`git`（可选，用于历史记录）。Nginx 配置示例：
+[`deploy/nginx.conf.example`](deploy/nginx.conf.example)、[`deploy/nginx-cloudflare.conf.example`](deploy/nginx-cloudflare.conf.example)。
 
 > **网页版应用需要公网 HTTPS。** Claude、ChatGPT、Gemini 都是从它们自己的云端发起连接，
 > 所以服务器必须能通过 443 端口的 `https://…` 访问。详见 [docs/deploy.md](docs/deploy.md)，

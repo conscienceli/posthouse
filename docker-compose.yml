@@ -1,6 +1,7 @@
 # Posthouse
 #   Plain HTTP on port 8080:       docker compose up -d --build
 #   With automatic HTTPS (Caddy):  docker compose --profile https up -d --build   (needs POSTHOUSE_DOMAIN in .env)
+#   With a Cloudflare Tunnel:      docker compose --profile tunnel up -d --build  (needs POSTHOUSE_TUNNEL_TOKEN in .env)
 # The easiest way is scripts/docker-start.sh, which also creates .env with random passwords.
 
 services:
@@ -37,6 +38,19 @@ services:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+
+  # Cloudflare Tunnel: no inbound ports. Enabled by scripts/docker-start.sh --tunnel-token <TOKEN>.
+  # In Cloudflare, point the tunnel's public hostname at http://posthouse:8080
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: posthouse-tunnel
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    depends_on:
+      - posthouse
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${POSTHOUSE_TUNNEL_TOKEN:-}
 
 volumes:
   caddy-data:

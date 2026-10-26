@@ -1,27 +1,44 @@
-# Example nginx site for Posthouse behind your own TLS certificate.
-# Set POSTHOUSE_PUBLIC_URL=https://posthouse.example.com in .env so OAuth metadata uses the public URL.
-server {
-    listen 443 ssl http2;
-    server_name posthouse.example.com;
-
-    ssl_certificate     /etc/letsencrypt/live/posthouse.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/posthouse.example.com/privkey.pem;
-
-    client_max_body_size 50m;
-
-    location / {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_buffering off;
-        proxy_read_timeout 300s;
-    }
-}
+# nginx site for Posthouse on its own (sub)domain, with your own TLS certificate.
+#
+# 1. Start Posthouse so that it listens on 127.0.0.1 only:
+#      scripts/docker-start.sh --behind-proxy https://posthouse.example.com
+#    (bare metal: sudo scripts/install.sh --systemd --behind-proxy https://posthouse.example.com)
+# 2. Copy this file to /etc/nginx/sites-available/posthouse (Debian/Ubuntu, then symlink it into
+#    sites-enabled) or /etc/nginx/conf.d/posthouse.conf (RHEL/CentOS), replace the domain, then:
+#      sudo nginx -t && sudo systemctl reload nginx
+#
+# Posthouse needs the whole (sub)domain: OAuth discovery lives at /.well-known/ on the domain root,
+# so it cannot be served from a sub-path like example.com/posthouse/.
+# Behind Cloudflare's proxy, see deploy/nginx-cloudflare.conf.example instead.
 
 server {
     listen 80;
     server_name posthouse.example.com;
     return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name posthouse.example.com;
+
+    # e.g. from: sudo certbot certonly --nginx -d posthouse.example.com
+    ssl_certificate     /etc/letsencrypt/live/posthouse.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/posthouse.example.com/privkey.pem;
+
+    # nginx accepts only 1 MB request bodies by default; uploads and large writes would fail with 413.
+    client_max_body_size 20m;
+
+    # If your configuration has a "deny dot-files" rule such as  location ~ /\. { deny all; }
+    # it also blocks /.well-known/ and breaks the OAuth sign-in. Exclude it:
+    # location ~ /\.(?!well-known) { deny all; }
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;          # POSTHOUSE_HOST_PORT / POSTHOUSE_PORT
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;   # the real client (rate limiting)
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_read_timeout 300s;
+    }
 }

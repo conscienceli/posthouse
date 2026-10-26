@@ -4,19 +4,23 @@
 #   scripts/install.sh                 # create .venv, install dependencies, create .env
 #   sudo scripts/install.sh --systemd  # ... and run it as a systemd service (starts on boot)
 #   scripts/install.sh --port 9000 --public-url https://posthouse.example.com
+#   sudo scripts/install.sh --systemd --behind-proxy https://posthouse.example.com   # nginx / Cloudflare in front
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 cd "$ROOT_DIR"
 
-SYSTEMD=0; PORT=""; PUBLIC_URL=""; SERVICE_USER="${SUDO_USER:-$(id -un)}"
+SYSTEMD=0; PORT=""; PUBLIC_URL=""; BEHIND=""; SERVICE_USER="${SUDO_USER:-$(id -un)}"
 while [ $# -gt 0 ]; do
   case "$1" in
     --systemd) SYSTEMD=1; shift ;;
     --port) PORT="${2:?}"; shift 2 ;;
     --public-url) PUBLIC_URL="${2:?}"; shift 2 ;;
+    --behind-proxy) BEHIND="${2:?--behind-proxy needs the public URL, e.g. https://posthouse.example.com}"; shift 2 ;;
     --user) SERVICE_USER="${2:?}"; shift 2 ;;
     --no-agent-password) export POSTHOUSE_NO_AGENT_PASSWORD=1; shift ;;
-    -h|--help) sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'; echo "  --user USER  account that runs the service (default: the invoking user)"; exit 0 ;;
+    -h|--help) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
+               echo "  --behind-proxy URL  a reverse proxy serves URL: listen on 127.0.0.1 only and use URL publicly"
+               echo "  --user USER         account that runs the service (default: the invoking user)"; exit 0 ;;
     *) die "Unknown option: $1" ;;
   esac
 done
@@ -38,6 +42,16 @@ info "Installing Python dependencies"
 ensure_env
 [ -n "$PORT" ] && set_env POSTHOUSE_PORT "$PORT"
 [ -n "$PUBLIC_URL" ] && set_env POSTHOUSE_PUBLIC_URL "${PUBLIC_URL%/}"
+if [ -n "$BEHIND" ]; then
+  case "$BEHIND" in
+    https://*) ;;
+    http://*) warn "Claude, ChatGPT and Gemini only connect to https:// URLs; $BEHIND will work for local tests only." ;;
+    *) die "--behind-proxy needs a full URL such as https://posthouse.example.com" ;;
+  esac
+  set_env POSTHOUSE_PUBLIC_URL "${BEHIND%/}"
+  set_env POSTHOUSE_HOST "127.0.0.1"                 # only the local proxy can reach the app
+  set_env POSTHOUSE_TRUSTED_PROXIES "127.0.0.1,::1"  # the proxy connects from this machine
+fi
 mkdir -p data
 if [ "$(id -u)" = "0" ] && [ "$SERVICE_USER" != "root" ]; then
   chown -R "$SERVICE_USER" data .env .venv
@@ -55,7 +69,13 @@ if [ "$SYSTEMD" = "1" ]; then
   for _ in $(seq 1 30); do curl -fsS "http://127.0.0.1:$port/healthz" >/dev/null 2>&1 && break; sleep 1; done
   base="$(get_env POSTHOUSE_PUBLIC_URL)"; base="${base:-http://$(hostname -I 2>/dev/null | awk '{print $1}'):$port}"
   print_summary "$base"
+  if [ -n "$BEHIND" ]; then
+    info "Point your reverse proxy at http://127.0.0.1:$port (example: deploy/nginx.conf.example)"
+  fi
 else
   info "Installed. Start the server with: scripts/run.sh"
   echo "     (or install it as a service: sudo scripts/install.sh --systemd)"
+  if [ -n "$BEHIND" ]; then
+    info "Point your reverse proxy at http://127.0.0.1:$(get_env POSTHOUSE_PORT || true) (example: deploy/nginx.conf.example)"
+  fi
 fi
