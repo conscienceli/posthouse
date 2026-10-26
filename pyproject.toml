@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cross-agent-workspace"
+version = "0.1.0"
+description = "Shared, versioned project workspaces and memory for AI agents (Claude, ChatGPT, Gemini, CLI agents) over MCP and REST."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.32",
+  "python-multipart>=0.0.18",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx>=0.27"]
+
+[project.scripts]
+caw = "caw.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/conscienceli/cross-agent-workspace"
+
+[tool.setuptools]
+packages = ["caw"]
+
+[tool.setuptools.package-data]
+caw = ["static/*", "static/i18n/*", "workspace_template/*", "workspace_template/**/*", "workspace_template/**/.gitkeep"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

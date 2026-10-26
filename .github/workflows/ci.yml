@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -r requirements-dev.txt
+      - run: pytest -q
+
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: shellcheck -x -S warning scripts/*.sh
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t cross-agent-workspace:ci .
+      - name: Smoke test the image
+        run: |
+          docker run -d --name caw -p 8080:8080 -e CAW_ADMIN_PASSWORD=ci-admin cross-agent-workspace:ci
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/healthz && break; sleep 1; done
+          curl -fsS -u admin:ci-admin -X POST -H 'Content-Type: application/json' \
+               -d '{"name":"ci"}' http://127.0.0.1:8080/api/workspaces
+          curl -fsS -u admin:ci-admin http://127.0.0.1:8080/api/workspaces/ci/history
+          docker logs caw

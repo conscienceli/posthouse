@@ -1,0 +1,7 @@
+# Automatic HTTPS (Let's Encrypt) in front of Cross-Agent Workspace.
+# Used by `docker compose --profile https`. CAW_DOMAIN must point (DNS A/AAAA record) at this server,
+# and ports 80 and 443 must be reachable from the internet.
+{$CAW_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy caw:8080
+}

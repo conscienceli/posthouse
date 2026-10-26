@@ -1,0 +1,21 @@
+# runtime data and secrets
+data/
+.env
+*.sqlite3*
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+build/
+
+# build outputs
+dist/
+
+# editors / OS
+.idea/
+.vscode/
+.DS_Store

@@ -1,0 +1,15 @@
+.git
+.github
+.venv
+venv
+data
+tests
+docs
+skills
+dist
+*.pyc
+__pycache__
+.pytest_cache
+.env
+*.md
+!caw/workspace_template/**/*.md
