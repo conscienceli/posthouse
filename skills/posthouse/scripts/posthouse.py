@@ -41,7 +41,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 EXIT_CONFLICT = 3
 CRED_KEYS = ("url", "user", "password", "token", "agent")
 
@@ -837,16 +837,19 @@ LOCAL_COMMANDS = {"hook", "install-hooks", "uninstall-hooks", "login", "use", "s
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="posthouse.py", description="Posthouse client",
                                 formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__.split("\n\n", 1)[1])
-    p.add_argument("--url", help="server URL (default: $POSTHOUSE_URL or the saved login)")
-    p.add_argument("--user")
-    p.add_argument("--password")
-    p.add_argument("--token")
-    p.add_argument("--agent", help="author name recorded with changes")
+    global_opts = (("--url", "server URL (default: $POSTHOUSE_URL or the saved login)"), ("--user", None),
+                   ("--password", None), ("--token", None), ("--agent", "author name recorded with changes"))
+    for flag, text in global_opts:
+        p.add_argument(flag, help=text)
     p.add_argument("--version", action="version", version=__version__)
+    # the same options are also accepted after the command (`login --url … --token …`)
+    common = argparse.ArgumentParser(add_help=False)
+    for flag, text in global_opts:
+        common.add_argument(flag, default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     sub = p.add_subparsers(dest="cmd", required=True)
 
     def add(name, fn, help_):
-        sp = sub.add_parser(name, help=help_)
+        sp = sub.add_parser(name, help=help_, parents=[common])
         sp.set_defaults(fn=fn)
         return sp
 

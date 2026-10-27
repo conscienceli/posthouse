@@ -306,3 +306,14 @@ def test_identical_write_is_a_no_op(client, ws):
     assert r["unchanged"] is True
     assert client.get("/api/workspaces/demo/history", headers=AGENT).json()["commits"] == before
     assert len(client.get("/api/activity?workspace=demo", headers=ADMIN).json()["activity"]) == acts
+
+
+def test_global_options_work_after_the_command(cli, server, isolated, capsys):
+    """`login --url … --token …` (as documented) and `--url … login` both work."""
+    assert cli.main(["login", "--url", server, "--user", "agent", "--password", "agent"]) == 0
+    assert cli.main(["--url", server, "--user", "agent", "--password", "agent", "login"]) == 0
+    assert cli.main(["ls", "--url", server, "--user", "agent", "--password", "agent"]) == 0
+    capsys.readouterr()
+    # the log command's own --agent-name still works next to the global --agent
+    api(server, "POST", "/api/workspaces", {"name": "opts"})
+    assert cli.main(["log", "opts", "--summary", "s", "--agent-name", "Gemini", "--agent", "x"]) == 0
