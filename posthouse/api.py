@@ -15,11 +15,12 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from . import __version__
-from .auth import SESSION_COOKIE, AuthError, Principal
+from .auth import SESSION_COOKIE, AuthError, Principal, clean_actor
 from .deps import Ctx, base_url, client_key, get_ctx, is_https
 from .mcp_server import _session_markdown
 from .oauth import revoke_grant
 from .security import constant_eq
+from .setup_message import build_message
 from .storage import Forbidden, NotFound, StorageError, is_text, now_iso
 
 router = APIRouter(prefix="/api")
@@ -121,6 +122,12 @@ class TokenIn(BaseModel):
     role: str = Field("workspace", pattern="^(agent|workspace)$")
     workspace: Optional[str] = None
     expires_days: Optional[int] = Field(None, ge=1, le=3650)
+
+
+class SetupIn(BaseModel):
+    expires_days: Optional[int] = Field(None, ge=1, le=3650)
+    lang: Optional[str] = Field(None, max_length=20)
+    agent: Optional[str] = Field(None, max_length=80)
 
 
 class RestoreIn(BaseModel):
@@ -448,6 +455,25 @@ def delete_token(token_id: str, request: Request, p: Principal = Depends(admin))
     ctx.db.execute("DELETE FROM api_tokens WHERE id=?", (token_id,))
     ctx.db.log_activity(p.actor, "token.revoke", detail=token_id)
     return {"revoked": True}
+
+
+@router.post("/workspaces/{name}/setup-message", status_code=201)
+def setup_message(name: str, body: SetupIn, request: Request, p: Principal = Depends(admin)):
+    """Create a token for this workspace only and return a message to paste into a new Claude task.
+
+    Tokens are stored hashed and can't be shown again, so every message gets a new token.
+    """
+    ctx = get_ctx(request)
+    ws = _ws(ctx, p, name)
+    stamp = time.strftime("%Y-%m-%d %H:%M", time.gmtime())
+    token, row = ctx.auth.create_api_token(f"{ws['name']} · setup message {stamp}", "workspace", ws["id"],
+                                           body.expires_days)
+    base = base_url(request)
+    agent = clean_actor(body.agent) or "Claude"
+    ctx.db.log_activity(p.actor, "token.create", ws["name"], detail=f"{row['name']} (workspace)")
+    return {"message": build_message(ws["name"], base, token, agent, body.lang),
+            "token_id": row["id"], "token_name": row["name"], "base_url": base,
+            "expires_at": now_iso(row["expires_at"]) if row["expires_at"] else None}
 
 
 # -------------------------------------------------------------- admin: connections

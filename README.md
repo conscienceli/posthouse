@@ -172,7 +172,12 @@ python3 posthouse.py read my-project STATUS.md
 python3 posthouse.py log my-project --summary "Drafted section 2" --next "Review section 3"
 ```
 
-To save every Claude Code turn to a workspace (before and after each turn, secrets redacted):
+The quickest way to start a new Cowork or Claude Code task on a workspace: click **Setup
+message** on the workspace in the admin UI and paste the copied message into the task. It
+contains the server address and a new token for that workspace only; Claude installs the skill
+from your server, signs in and turns on conversation auto-save.
+
+To do the same by hand (before and after each turn, secrets redacted):
 
 ```bash
 python3 posthouse.py login --url https://posthouse.example.com --token ph_…

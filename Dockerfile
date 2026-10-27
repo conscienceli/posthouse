@@ -22,6 +22,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY posthouse ./posthouse
+COPY skills/posthouse ./skills/posthouse
 RUN mkdir -p /data && chmod 0777 /data
 
 # Run as an unprivileged user by default; docker-compose overrides the uid/gid so the

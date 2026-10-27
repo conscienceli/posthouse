@@ -10,7 +10,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
@@ -21,6 +21,7 @@ from .db import DB
 from .deps import Ctx
 from .mcp_server import router as mcp_router
 from .oauth import router as oauth_router
+from .setup_message import SKILL_PATH, skill_zip
 from .storage import StorageError, Workspaces
 
 log = logging.getLogger("posthouse")
@@ -107,7 +108,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if path == "/" or path.startswith("/static/"):
             resp.headers.setdefault("Content-Security-Policy", UI_CSP)
             resp.headers.setdefault("X-Frame-Options", "DENY")
-        elif (path.startswith("/api/") and path not in ("/api/docs", "/api/openapi.json")) or path.startswith("/mcp"):
+        elif ((path.startswith("/api/") and path not in ("/api/docs", "/api/openapi.json"))
+              or path.startswith("/mcp") or path.startswith("/skill/")):
             # API responses are data only; even if a browser renders one, nothing may run.
             resp.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; sandbox")
         return resp
@@ -119,6 +121,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/healthz", include_in_schema=False)
     def healthz():
         return {"ok": True, "version": __version__}
+
+    @app.get(SKILL_PATH, include_in_schema=False)
+    def skill_download():
+        data = skill_zip()
+        if data is None:
+            return JSONResponse({"error": "not_found", "message": "The skill is not bundled with this server."}, 404)
+        return Response(data, media_type="application/zip", headers={
+            "Content-Disposition": 'attachment; filename="posthouse-skill.zip"', "Cache-Control": "no-cache"})
 
     @app.get("/", include_in_schema=False)
     def index():

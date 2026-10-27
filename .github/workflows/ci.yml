@@ -37,4 +37,7 @@ jobs:
           curl -fsS -u admin:ci-admin -X POST -H 'Content-Type: application/json' \
                -d '{"name":"ci"}' http://127.0.0.1:8080/api/workspaces
           curl -fsS -u admin:ci-admin http://127.0.0.1:8080/api/workspaces/ci/history
+          curl -fsS -o /tmp/skill.zip http://127.0.0.1:8080/skill/posthouse-skill.zip
+          python3 -m zipfile -l /tmp/skill.zip | grep -q 'posthouse/SKILL.md'
+          python3 -m zipfile -l /tmp/skill.zip | grep -q 'posthouse/scripts/posthouse.py'
           docker logs posthouse

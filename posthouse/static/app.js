@@ -183,13 +183,32 @@
     });
   }
 
+  async function copyText(text) {
+    try {
+      if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; }
+    } catch (e) { /* fall back below */ }
+    const ta = h('textarea', { style: 'position:fixed;top:-1000px;opacity:0', readonly: true });
+    ta.value = text;
+    document.body.append(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    ta.remove();
+    return ok;
+  }
+
   function copyBox(text, multiline) {
+    const shown = h(multiline ? 'pre' : 'code', null, text);
     const btn = h('button', { class: 'btn sm', onclick: async () => {
-      try { await navigator.clipboard.writeText(text); btn.textContent = t('common.copied'); }
-      catch (e) { toast(text); }
+      if (await copyText(text)) btn.textContent = t('common.copied');
+      else {  // select it so the user can press Ctrl+C / ⌘C
+        const r = document.createRange(); r.selectNodeContents(shown);
+        const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+        toast(t('common.copyManually'));
+      }
       setTimeout(() => { btn.textContent = t('common.copy'); }, 1500);
     } }, t('common.copy'));
-    return h('div', { class: 'copybox' }, h(multiline ? 'pre' : 'code', null, text), btn);
+    return h('div', { class: 'copybox' }, shown, btn);
   }
 
   // ----------------------------------------------------------------- state
@@ -331,7 +350,9 @@
         w.has_password ? h('span', { class: 'badge warn', title: t('ws.protected') }, '🔒 ' + t('ws.protected')) : null),
       h('div', { class: 'desc' }, w.description || '—'),
       h('div', { class: 'meta' }, h('span', null, t('ws.files', { n: w.file_count })), h('span', null, fmtBytes(w.total_bytes)),
-        h('span', { title: absTime(w.updated_at) }, t('ws.updated', { t: relTime(w.updated_at) }))));
+        h('span', { title: absTime(w.updated_at) }, t('ws.updated', { t: relTime(w.updated_at) })),
+        h('button', { class: 'btn sm', style: 'margin-left:auto', title: t('setup.title'),
+          onclick: (e) => { e.preventDefault(); e.stopPropagation(); setupDialog(w.name); } }, '⧉ ' + t('setup.button'))));
   }
 
   function newWorkspaceDialog() {
@@ -737,8 +758,55 @@
         h('label', { class: 'field' }, h('span', null, t('settings.deleteConfirm')), confirmName), h('div', null, delBtn)));
   }
 
+  // --------------------------------------------------------- setup message
+  function setupDialog(wsName) {
+    const exp = h('select', null, h('option', { value: '' }, t('setup.never')),
+      h('option', { value: '30' }, t('setup.days', { n: 30 })), h('option', { value: '90' }, t('setup.days', { n: 90 })),
+      h('option', { value: '365' }, t('setup.year')));
+    const agent = h('input', { type: 'text', value: 'Claude', maxlength: 80 });
+    const err = h('div', { class: 'err-text' });
+    const body = h('div', { class: 'stack' },
+      h('p', { class: 'muted', style: 'margin:0' }, t('setup.intro', { ws: wsName })),
+      h('label', { class: 'field' }, h('span', null, t('setup.expires')), exp),
+      h('label', { class: 'field' }, h('span', null, t('setup.agent')), agent), err);
+    const createBtn = h('button', { class: 'btn primary' }, t('setup.create'));
+    const m = modal({ title: t('setup.title') + ' · ' + wsName, wide: true, body,
+      foot: [h('button', { class: 'btn', onclick: () => m.close() }, t('common.close')), createBtn] });
+    createBtn.addEventListener('click', async () => {
+      err.textContent = '';
+      createBtn.disabled = true;
+      try {
+        const r = await api('POST', wsApi(wsName) + '/setup-message', {
+          expires_days: exp.value ? parseInt(exp.value, 10) : null, agent: agent.value.trim() || null, lang: locale() });
+        const copied = await copyText(r.message);
+        let reachable = true;
+        try { const u = new URL(r.base_url); reachable = u.protocol === 'https:' && !u.port; } catch (e) { reachable = false; }
+        body.replaceChildren(
+          h('div', { class: 'banner ' + (copied ? 'info' : 'warn') }, copied ? t('setup.copied') : t('setup.copyManually')),
+          reachable ? null : h('div', { class: 'banner warn' }, t('setup.httpWarning', { url: r.base_url })),
+          copyBox(r.message, true),
+          h('p', { class: 'small muted', style: 'margin:0' }, t('setup.tokenNote', { name: r.token_name })));
+        createBtn.remove();
+      } catch (e) { err.textContent = e.message; createBtn.disabled = false; }
+    });
+  }
+
+  function setupCard(wsName, workspaces) {
+    let pick = null;
+    if (!wsName) {
+      if (!workspaces || !workspaces.length) return null;
+      pick = h('select', { style: 'max-width:260px' }, workspaces.map((w) => h('option', { value: w.name }, w.name)));
+    }
+    return h('div', { class: 'card stack' }, h('h3', null, t('setup.title')),
+      h('p', { class: 'muted', style: 'margin:0' }, t('setup.cardText')),
+      h('div', { class: 'row wrap' }, pick,
+        h('button', { class: 'btn primary', onclick: () => setupDialog(wsName || pick.value) }, '⧉ ' + t('setup.button')),
+        h('a', { class: 'btn', href: '/skill/posthouse-skill.zip', download: 'posthouse-skill.zip' }, '⤓ ' + t('setup.skillZip'))),
+      h('div', { class: 'hint', style: 'margin:0' }, t('setup.skillZipHint')));
+  }
+
   // --------------------------------------------------------------- connect
-  function connectGuide(wsName) {
+  function connectGuide(wsName, workspaces) {
     const base = (state.info && state.info.base_url) || location.origin;
     const mcp = base + '/mcp';
     const wsLabel = wsName || '<workspace>';
@@ -749,6 +817,7 @@
     const tokenBtn = h('button', { class: 'btn', onclick: () => createTokenDialog(wsName) }, '+ ' + t('connect.createToken'));
     return h('div', { class: 'stack', style: 'max-width:900px' },
       h('p', { class: 'muted', style: 'margin-top:0' }, t('connect.intro')),
+      setupCard(wsName, workspaces),
       h('div', { class: 'card stack' }, h('h3', null, t('connect.mcpUrl')), copyBox(mcp)),
       h('div', { class: 'card stack' }, h('h3', null, t('connect.oauthTitle')), h('p', { class: 'muted', style: 'margin:0' }, t('connect.oauthText')),
         h('div', null, h('b', null, t('connect.platforms'))),
@@ -765,7 +834,9 @@
   }
   async function tabConnect(ws) { return connectGuide(ws.name); }
   async function pageConnect() {
-    return h('div', null, h('div', { class: 'page-head' }, h('h1', null, t('connect.title'))), connectGuide(null));
+    let workspaces = [];
+    try { workspaces = (await api('GET', '/api/workspaces')).workspaces; } catch (e) { /* the card is optional */ }
+    return h('div', null, h('div', { class: 'page-head' }, h('h1', null, t('connect.title'))), connectGuide(null, workspaces));
   }
 
   // ---------------------------------------------------------------- tokens

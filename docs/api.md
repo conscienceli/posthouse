@@ -28,6 +28,7 @@ Errors look like `{"error": "<code>", "message": "..."}` with status 400, 401, 4
 | `GET /api/workspaces/{ws}` | any with access | Details, including `history_bytes` (size of the change history) |
 | `PATCH /api/workspaces/{ws}` `{description?, password?, clear_password?, new_name?}` | admin (agent: description only) | Update |
 | `DELETE /api/workspaces/{ws}` | admin | Move to trash |
+| `POST /api/workspaces/{ws}/setup-message` `{expires_days?, lang?, agent?}` | admin | Creates a token for this workspace only and returns `{message, token_id, token_name, base_url, expires_at}`: a message to paste into a new Claude task |
 | `POST /api/workspaces/{ws}/compact` | admin | Compact the change history now (`git gc`; also runs automatically) → `{compacted, before_bytes, after_bytes}` |
 | `GET /api/workspaces/{ws}/tree?path=&recursive=` | access | List entries |
 | `GET /api/workspaces/{ws}/file?path=&offset=&limit=&revision=` | access | Read as JSON `{content, encoding, version, …}` |
@@ -50,7 +51,7 @@ Errors look like `{"error": "<code>", "message": "..."}` with status 400, 401, 4
 | `GET /api/connections`, `DELETE /api/connections/{id}` | admin | OAuth grants (connected apps) |
 | `GET /api/trash`, `POST /api/trash/{id}/restore {name?}`, `DELETE /api/trash/{id}` | admin | Trash |
 
-Other endpoints: `GET /healthz`, `POST /mcp` (MCP), `/oauth/*` and `/.well-known/*` (OAuth).
+Other endpoints: `GET /skill/posthouse-skill.zip` (the agent skill, public), `GET /healthz`, `POST /mcp` (MCP), `/oauth/*` and `/.well-known/*` (OAuth).
 
 ## Versions and conflicts
 

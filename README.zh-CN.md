@@ -160,7 +160,11 @@ python3 posthouse.py read my-project STATUS.md
 python3 posthouse.py log my-project --summary "完成第二节初稿" --next "审阅第三节"
 ```
 
-想让 Claude Code 的每轮对话都自动保存到工作区（每轮开始前和结束后各一次，去除敏感信息）：
+在新的 Cowork 或 Claude Code 任务里接入工作区，最快的办法是在管理界面点该工作区的「接入指令」，
+把复制好的消息粘贴进任务。消息里带有服务器地址和一个只能访问这个工作区的新令牌，Claude 会从你的服务器
+安装 Skill、登录并开启对话自动保存。
+
+也可以手动设置（每轮开始前和结束后各保存一次，去除敏感信息）：
 
 ```bash
 python3 posthouse.py login --url https://posthouse.example.com --token ph_…

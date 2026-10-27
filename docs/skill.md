@@ -19,6 +19,9 @@ scripts. Agents with the MCP connector can use the tools directly; `SKILL.md` co
 ./scripts/package-skill.sh        # -> dist/posthouse-skill.zip
 ```
 
+Or download it from your server: `https://posthouse.example.com/skill/posthouse-skill.zip`
+(admin UI → Connect → Download the skill).
+
 Upload the zip in Claude's skill settings (Settings → Capabilities/Customize → Skills → Upload).
 Claude then uses it when you mention the workspace. Give the URL and credentials in the
 conversation, or keep them in a project's instructions:
@@ -54,6 +57,47 @@ Set the environment variables in your shell profile:
 ```bash
 export POSTHOUSE_URL=https://posthouse.example.com POSTHOUSE_USER=agent POSTHOUSE_PASSWORD=… POSTHOUSE_AGENT="Codex"
 ```
+
+## Set up a new Claude task in one message
+
+In the admin UI, every workspace card has a **Setup message** button (it is also on the
+workspace's **Connect** tab). It creates a token that opens only that workspace and copies a
+message like this:
+
+````markdown
+Please connect this task to my Posthouse workspace "my-project" and save our conversation there
+automatically, before and after every turn.
+
+- Server: https://posthouse.example.com
+- Workspace: my-project
+- Token: ph_… (opens only this workspace; never copy it into workspace files or summaries)
+
+Run these commands (macOS or Linux shell):
+
+```bash
+mkdir -p ~/.claude/skills && curl -fsSL https://posthouse.example.com/skill/posthouse-skill.zip -o /tmp/posthouse-skill.zip && python3 -m zipfile -e /tmp/posthouse-skill.zip ~/.claude/skills/
+python3 ~/.claude/skills/posthouse/scripts/posthouse.py login --url https://posthouse.example.com --token ph_… --agent Claude
+python3 ~/.claude/skills/posthouse/scripts/posthouse.py install-hooks --workspace my-project
+python3 ~/.claude/skills/posthouse/scripts/posthouse.py start my-project
+```
+
+Then follow the Posthouse skill …
+````
+
+Paste it as the first message of a new Cowork or Claude Code task. Claude downloads the skill from
+your server, signs in, installs the hooks described below and loads the project. This works for
+workspaces that agents created too: the admin can issue a token for any workspace.
+
+- The message is in the admin UI's language. You can choose the token's lifetime and the author
+  name recorded in the history.
+- Every click creates a new token (tokens are stored hashed and can't be shown again). Revoke old
+  ones under **Tokens**.
+- The server address comes from `POSTHOUSE_PUBLIC_URL`. Cloud sandboxes usually reach only HTTPS
+  on port 443; the dialog warns when the address is plain HTTP or uses another port.
+- API: `POST /api/workspaces/{ws}/setup-message` (admin) with `{expires_days?, lang?, agent?}`.
+
+The server also offers the skill at `/skill/posthouse-skill.zip` (no sign-in needed), which is
+handy for uploading it to Claude's skill settings.
 
 ## Save conversations automatically (Claude Code)
 
