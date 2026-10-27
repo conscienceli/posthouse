@@ -152,8 +152,11 @@ class Workspaces:
             email = re.sub(r"[^a-zA-Z0-9._-]", "-", safe.lower()) + "@agents.posthouse"
             env.update({"GIT_AUTHOR_NAME": safe, "GIT_AUTHOR_EMAIL": email,
                         "GIT_COMMITTER_NAME": safe, "GIT_COMMITTER_EMAIL": email})
+        # gc.auto/maintenance.auto off: packing runs on Posthouse's own schedule (compact), never
+        # in the middle of a write, and behaves the same on every git version.
         cmd = ["git", "-c", "safe.directory=*", "-c", "core.quotepath=false",
-               "-c", "commit.gpgsign=false", "-c", "init.defaultBranch=main", *args]
+               "-c", "commit.gpgsign=false", "-c", "init.defaultBranch=main",
+               "-c", "gc.auto=0", "-c", "maintenance.auto=false", *args]
         r = subprocess.run(cmd, cwd=str(cwd), env=env, capture_output=True, timeout=60)
         if check and r.returncode != 0:
             raise StorageError("git failed: " + r.stderr.decode("utf-8", "replace").strip()[:500])
