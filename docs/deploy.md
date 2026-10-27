@@ -214,6 +214,20 @@ your firewall or proxy:
 
 Remember to also allow your own IP (admin UI) and any CLI agents.
 
+## Disk usage
+
+Every write is a git commit, so a workspace keeps every old version of every file. Git stores them
+compactly, but only after it packs them: until then each version is a separate small file.
+
+- Posthouse packs each workspace's history automatically, a minute after it starts and then every
+  `POSTHOUSE_GIT_GC_HOURS` hours (default `24`; `0` turns it off). Workspaces with little new history
+  are skipped, so the run is cheap. In tests a busy workspace went from 8.8 MB to 0.6 MB.
+- Old versions are never deleted. Packing only stores them more efficiently.
+- The admin UI shows the size of files and history under Workspace → Settings → Storage, with a
+  **Compact history now** button.
+- Large binary files (images, PDFs) do not compress well and each changed version is kept. If space
+  becomes a problem, put big files somewhere else and store a link in the workspace.
+
 ## Backups and upgrades
 
 - Everything lives in `data/`: `workspaces/` (each is a git repository), `trash/`, and

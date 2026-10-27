@@ -59,6 +59,7 @@ class Settings:
     port: int = 8080
     max_file_bytes: int = 10 * 1024 * 1024
     git_enabled: bool = True
+    git_gc_hours: int = 24
     access_token_ttl: int = 3600
     refresh_token_ttl: int = 180 * 24 * 3600
     session_ttl: int = 12 * 3600
@@ -97,6 +98,7 @@ class Settings:
             port=_int("POSTHOUSE_PORT", 8080),
             max_file_bytes=_int("POSTHOUSE_MAX_FILE_MB", 10) * 1024 * 1024,
             git_enabled=_bool("POSTHOUSE_GIT", True),
+            git_gc_hours=_int("POSTHOUSE_GIT_GC_HOURS", 24),
             access_token_ttl=_int("POSTHOUSE_ACCESS_TOKEN_TTL", 3600),
             refresh_token_ttl=_int("POSTHOUSE_REFRESH_TOKEN_DAYS", 180) * 24 * 3600,
             session_ttl=_int("POSTHOUSE_SESSION_HOURS", 12) * 3600,

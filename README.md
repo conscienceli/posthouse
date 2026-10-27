@@ -39,7 +39,8 @@ your server. Agents reach it in three ways:
 
 - **Plain files, full history.** Each workspace is a directory on disk and its own git repository.
   Every change becomes a commit authored by the agent that made it, so you can view old versions,
-  diff them and restore them. Deleted workspaces go to a trash first.
+  diff them and restore them. History is packed automatically every day to save disk space.
+  Deleted workspaces go to a trash first.
 - **One-call onboarding.** `start_session` returns the project guide, the current status, recent
   decisions, the latest hand-off notes, the file list and recent changes.
 - **Hand-off protocol.** Each workspace starts with `AGENTS.md`, `STATUS.md`, `DECISIONS.md`,
@@ -197,6 +198,7 @@ All settings come from environment variables or `.env`. See [`.env.example`](.en
 | `POSTHOUSE_HOST_PORT` / `POSTHOUSE_BIND` | `8080` / `0.0.0.0` | Published port and bind address (Docker) |
 | `POSTHOUSE_MAX_FILE_MB` | `10` | Maximum file size |
 | `POSTHOUSE_GIT` | `true` | Version every change with git |
+| `POSTHOUSE_GIT_GC_HOURS` | `24` | Compact each workspace's change history this often (`git gc`; `0` turns it off). Admins can also run it from Workspace → Settings |
 | `POSTHOUSE_ACCESS_TOKEN_TTL` | `3600` | OAuth access token lifetime (seconds) |
 | `POSTHOUSE_REFRESH_TOKEN_DAYS` | `180` | OAuth refresh token lifetime (days, rotated on use) |
 | `POSTHOUSE_SESSION_HOURS` | `12` | Admin UI session lifetime |

@@ -134,7 +134,8 @@ def info(request: Request):
     base = base_url(request)
     return {"name": "Posthouse", "version": __version__, "base_url": base,
             "mcp_url": f"{base}/mcp", "agent_password_enabled": bool(ctx.settings.agent_password),
-            "git": ctx.store.git, "max_file_mb": ctx.settings.max_file_bytes // (1024 * 1024)}
+            "git": ctx.store.git, "max_file_mb": ctx.settings.max_file_bytes // (1024 * 1024),
+            "history_compaction_hours": ctx.settings.git_gc_hours if ctx.store.git else 0}
 
 
 @router.post("/login")
@@ -198,7 +199,15 @@ def create_workspace(body: WorkspaceIn, request: Request, p: Principal = Depends
 @router.get("/workspaces/{name}")
 def get_workspace(name: str, request: Request, p: Principal = Depends(principal)):
     ctx = get_ctx(request)
-    return ctx.store.public(_ws(ctx, p, name))
+    ws = _ws(ctx, p, name)
+    return {**ctx.store.public(ws), "history_bytes": ctx.store.history_bytes(ws)}
+
+
+@router.post("/workspaces/{name}/compact")
+def compact_workspace(name: str, request: Request, p: Principal = Depends(admin)):
+    """Pack the workspace's change history now (it also happens automatically every day)."""
+    ctx = get_ctx(request)
+    return ctx.store.compact(_ws(ctx, p, name), force=True, actor=p.actor)
 
 
 @router.patch("/workspaces/{name}")

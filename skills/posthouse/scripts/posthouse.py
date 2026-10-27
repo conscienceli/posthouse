@@ -30,7 +30,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 EXIT_CONFLICT = 3
 
 

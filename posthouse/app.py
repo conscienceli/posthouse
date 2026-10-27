@@ -47,9 +47,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     log.exception("housekeeping failed")
                 await asyncio.sleep(3600)
 
-        task = asyncio.create_task(housekeeping())
+        async def compact_history():
+            # Pack each workspace's git history now and then (only where it has grown).
+            await asyncio.sleep(60)
+            while True:
+                try:
+                    await asyncio.to_thread(store.compact_all)
+                except Exception:  # pragma: no cover
+                    log.exception("history compaction failed")
+                await asyncio.sleep(settings.git_gc_hours * 3600)
+
+        tasks = [asyncio.create_task(housekeeping())]
+        if store.git and settings.git_gc_hours > 0:
+            tasks.append(asyncio.create_task(compact_history()))
         yield
-        task.cancel()
+        for task in tasks:
+            task.cancel()
 
     app = FastAPI(title="Posthouse", version=__version__, lifespan=lifespan,
                   docs_url="/api/docs", redoc_url=None, openapi_url="/api/openapi.json")

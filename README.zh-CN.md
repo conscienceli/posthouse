@@ -37,6 +37,7 @@ Posthouse（驿站）给每个项目一个**工作区**：就是你服务器上�
 
 - **普通文件，完整历史。** 每个工作区既是磁盘上的一个目录，也是一个独立的 git 仓库。
   每次修改都是一次提交，作者记为做出修改的那个智能体，所以可以查看旧版本、对比差异并恢复。
+  修改历史每天自动压缩，节省磁盘空间。
   删除的工作区会先进入回收站。
 - **一次调用即可上手。** `start_session` 一次返回项目指南、当前状态、最近决策、最新交接记录、
   文件列表和最近修改。
@@ -186,6 +187,7 @@ curl -u agent:$PW -X PUT --data-binary @STATUS.md -H "If-Match: <版本号>" \
 | `POSTHOUSE_HOST_PORT` / `POSTHOUSE_BIND` | `8080` / `0.0.0.0` | 对外端口和绑定地址（Docker） |
 | `POSTHOUSE_MAX_FILE_MB` | `10` | 单个文件大小上限 |
 | `POSTHOUSE_GIT` | `true` | 用 git 记录每次修改 |
+| `POSTHOUSE_GIT_GC_HOURS` | `24` | 每隔多少小时压缩一次各工作区的修改历史（`git gc`，`0` 为关闭）；管理员也可在 工作区 → 设置 中手动执行 |
 | `POSTHOUSE_ACCESS_TOKEN_TTL` | `3600` | OAuth 访问令牌有效期（秒） |
 | `POSTHOUSE_REFRESH_TOKEN_DAYS` | `180` | OAuth 刷新令牌有效期（天，每次使用后轮换） |
 | `POSTHOUSE_SESSION_HOURS` | `12` | 管理界面登录有效期 |

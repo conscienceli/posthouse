@@ -159,14 +159,14 @@ class Workspaces:
     def _git_init(self, d: Path) -> None:
         if not self.git or (d / ".git").exists():
             return
-        self._git(d, "init", "-q")
+        self._git(d, "init", "-q", "--template=")  # no sample hooks
         self._commit(d, "Initialize workspace", "posthouse")
 
     def _commit(self, d: Path, message: str, author: str) -> None:
         if not self.git:
             return
         if not (d / ".git").exists():
-            self._git(d, "init", "-q")
+            self._git(d, "init", "-q", "--template=")  # no sample hooks
         self._git(d, "add", "-A")
         if not self._git(d, "status", "--porcelain").strip():
             return
@@ -282,7 +282,7 @@ class Workspaces:
             "INSERT INTO workspaces(id,name,description,password_hash,created_at,updated_at) VALUES (?,?,?,?,?,?)",
             (ws["id"], name, description, ws["password_hash"], t, t))
         if self.git:
-            self._git(d, "init", "-q")
+            self._git(d, "init", "-q", "--template=")  # no sample hooks
             self._commit(d, f"Create workspace {name}", actor)
         self.db.log_activity(actor, "workspace.create", name)
         return ws
@@ -696,6 +696,81 @@ class Workspaces:
         for r in results:
             r.pop("score", None)
         return results[:max_results]
+
+    # ------------------------------------------------------- history compaction
+    LOOSE_OBJECTS_THRESHOLD = 200   # compact once this many loose objects piled up
+    PACKS_THRESHOLD = 10            # ... or this many pack files
+
+    @staticmethod
+    def _dir_bytes(p: Path) -> int:
+        """Disk space used (allocated blocks, like `du`): thousands of tiny loose git objects each
+        occupy a whole block, which is exactly what compaction reclaims."""
+        total = 0
+        for dirpath, _, filenames in os.walk(p):
+            for f in filenames:
+                try:
+                    st = os.lstat(os.path.join(dirpath, f))
+                except OSError:
+                    continue
+                blocks = getattr(st, "st_blocks", None)
+                total += blocks * 512 if blocks is not None else st.st_size
+        return total
+
+    def history_bytes(self, ws: dict) -> int:
+        g = self.dir_of(ws) / ".git"
+        return self._dir_bytes(g) if g.is_dir() else 0
+
+    def _needs_compaction(self, d: Path) -> bool:
+        stats = {}
+        for line in self._git(d, "count-objects", "-v", check=False).splitlines():
+            key, _, value = line.partition(":")
+            try:
+                stats[key.strip()] = int(value.strip())
+            except ValueError:
+                pass
+        return (stats.get("count", 0) >= self.LOOSE_OBJECTS_THRESHOLD
+                or stats.get("packs", 0) >= self.PACKS_THRESHOLD)
+
+    def compact(self, ws: dict, force: bool = False, actor: str = "system") -> dict:
+        """Pack the workspace's git history (git gc). Nothing is deleted; old versions stay readable.
+
+        Every write is its own commit, so history accumulates as many small loose objects;
+        packing them typically shrinks .git by an order of magnitude.
+        """
+        if not self.git:
+            return {"workspace": ws["name"], "compacted": False, "reason": "history is disabled"}
+        with self._mutating(ws) as ws:
+            d = self.dir_of(ws)
+            g = d / ".git"
+            if not g.is_dir():
+                return {"workspace": ws["name"], "compacted": False, "reason": "no history yet"}
+            before = self._dir_bytes(g)
+            if not force and not self._needs_compaction(d):
+                return {"workspace": ws["name"], "compacted": False, "reason": "not needed",
+                        "before_bytes": before, "after_bytes": before}
+            self._git(d, "-c", "gc.autoDetach=false", "gc", "--quiet")
+            hooks = g / "hooks"
+            if hooks.is_dir():  # sample hooks copied by older `git init`; never used
+                for f in hooks.glob("*.sample"):
+                    f.unlink(missing_ok=True)
+            after = self._dir_bytes(g)
+        if actor != "system" or before - after > 1024 * 1024:
+            self.db.log_activity(actor, "history.compact", ws["name"],
+                                 detail=f"{before // 1024} KB -> {after // 1024} KB")
+        return {"workspace": ws["name"], "compacted": True, "before_bytes": before, "after_bytes": after}
+
+    def compact_all(self) -> list[dict]:
+        out = []
+        for ws in self.list():
+            try:
+                out.append(self.compact(ws))
+            except Exception as e:  # keep going; one broken repo must not stop the others
+                log.warning("Compacting history of %s failed: %s", ws["name"], e)
+        done = [r for r in out if r.get("compacted")]
+        if done:
+            saved = sum(r["before_bytes"] - r["after_bytes"] for r in done)
+            log.info("Compacted history of %d workspace(s), saved %.1f MB", len(done), saved / 1048576)
+        return out
 
     # ------------------------------------------------------------------ history
     def history(self, ws: dict, path: str | None = None, limit: int = 20) -> list[dict]:

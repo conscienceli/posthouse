@@ -25,9 +25,10 @@ Errors look like `{"error": "<code>", "message": "..."}` with status 400, 401, 4
 | `POST /api/login` `{password}` / `POST /api/logout` | — | Admin UI session cookie |
 | `GET /api/workspaces` | any | Workspaces visible to the caller (with file count, size, timestamps) |
 | `POST /api/workspaces` `{name, description?, password?, template?}` | agent, admin | Create |
-| `GET /api/workspaces/{ws}` | any with access | Details |
+| `GET /api/workspaces/{ws}` | any with access | Details, including `history_bytes` (size of the change history) |
 | `PATCH /api/workspaces/{ws}` `{description?, password?, clear_password?, new_name?}` | admin (agent: description only) | Update |
 | `DELETE /api/workspaces/{ws}` | admin | Move to trash |
+| `POST /api/workspaces/{ws}/compact` | admin | Compact the change history now (`git gc`; also runs automatically) → `{compacted, before_bytes, after_bytes}` |
 | `GET /api/workspaces/{ws}/tree?path=&recursive=` | access | List entries |
 | `GET /api/workspaces/{ws}/file?path=&offset=&limit=&revision=` | access | Read as JSON `{content, encoding, version, …}` |
 | `PUT /api/workspaces/{ws}/file` `{path, content, encoding?, expected_version?, message?}` | access | Write (`encoding: base64` for binary; `expected_version: "new"` = must not exist) |

@@ -679,6 +679,12 @@
   }
 
   // -------------------------------------------------------------- settings
+  function compactHint() {
+    const hours = state.info ? state.info.history_compaction_hours : 24;
+    if (!hours) return t('settings.compactHintOff');
+    return hours === 24 ? t('settings.compactHint') : t('settings.compactHintHours', { hours });
+  }
+
   async function tabSettings(ws) {
     const desc = h('textarea', { rows: 4, value: ws.description || '' });
     const pw = h('input', { type: 'text', autocomplete: 'off' });
@@ -696,6 +702,21 @@
       catch (e) { toast(e.message, true); }
     } }, t('settings.deleteBtn'));
     confirmName.addEventListener('input', () => { delBtn.disabled = confirmName.value !== ws.name; });
+    const storageText = h('p', { class: 'muted', style: 'margin:0' },
+      t('settings.storageText', { files: fmtBytes(ws.total_bytes), history: fmtBytes(ws.history_bytes) }));
+    const compactBtn = h('button', { class: 'btn', onclick: async () => {
+      compactBtn.disabled = true;
+      try {
+        const r = await api('POST', wsApi(ws.name) + '/compact');
+        if (r.compacted) {
+          toast(t('settings.compacted', { before: fmtBytes(r.before_bytes), after: fmtBytes(r.after_bytes) }));
+          storageText.textContent = t('settings.storageText', { files: fmtBytes(ws.total_bytes), history: fmtBytes(r.after_bytes) });
+        } else {
+          toast(r.reason || t('settings.updated'));
+        }
+      } catch (e) { toast(e.message, true); }
+      compactBtn.disabled = false;
+    } }, t('settings.compact'));
     return h('div', { style: 'max-width:760px' },
       h('div', { class: 'card stack' }, h('h2', null, t('settings.description')), desc,
         h('div', null, h('button', { class: 'btn primary', onclick: () => patch({ description: desc.value }) }, t('common.save')))),
@@ -709,6 +730,8 @@
       h('div', { class: 'card stack' }, h('h2', null, t('settings.rename')),
         h('label', { class: 'field' }, h('span', null, t('settings.newName')), newName, h('div', { class: 'hint' }, t('ws.nameHint'))),
         h('div', null, h('button', { class: 'btn', onclick: () => { if (newName.value.trim() && newName.value.trim() !== ws.name) patch({ new_name: newName.value.trim() }); } }, t('settings.renameBtn')))),
+      h('div', { class: 'card stack' }, h('h2', null, t('settings.storage')), storageText,
+        h('div', null, compactBtn), h('div', { class: 'hint', style: 'margin:0' }, compactHint())),
       h('div', { class: 'card stack', style: 'border-color:var(--danger)' }, h('h2', { style: 'color:var(--danger)' }, t('settings.danger')),
         h('p', { class: 'muted', style: 'margin:0' }, t('settings.deleteText')),
         h('label', { class: 'field' }, h('span', null, t('settings.deleteConfirm')), confirmName), h('div', null, delBtn)));
