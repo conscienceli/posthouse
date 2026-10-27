@@ -43,6 +43,8 @@ Posthouse（驿站）给每个项目一个**工作区**：就是你服务器上�
   文件列表和最近修改。
 - **交接约定。** 新建的工作区自带 `AGENTS.md`、`STATUS.md`、`DECISIONS.md`、`journal/`、
   `memory/` 和 `files/`。`log_progress` 写入一条带日期的交接记录，同时可以更新 `STATUS.md`。
+- **自动保存对话（Claude Code）。** 一条命令安装钩子，在每轮对话开始前和结束后把完整对话保存到工作区，
+  敏感信息会先去除。见 [docs/skill.md](docs/skill.md#save-conversations-automatically-claude-code)。
 - **安全的并发编辑。** 写入时可以带上读取时拿到的版本号：如果文件在你读取之后被改过，写入会失败。
   `edit_file`（精确替换片段）和 `append_file`（追加）可以避免整文件覆盖。
 - **兼容现有的 MCP 客户端。** 同一个地址同时支持无状态的 **2026-07-28** 协议
@@ -156,6 +158,13 @@ export POSTHOUSE_URL=https://posthouse.example.com POSTHOUSE_USER=agent POSTHOUS
 python3 posthouse.py start my-project
 python3 posthouse.py read my-project STATUS.md
 python3 posthouse.py log my-project --summary "完成第二节初稿" --next "审阅第三节"
+```
+
+想让 Claude Code 的每轮对话都自动保存到工作区（每轮开始前和结束后各一次，去除敏感信息）：
+
+```bash
+python3 posthouse.py login --url https://posthouse.example.com --token ph_…
+python3 posthouse.py install-hooks --workspace my-project
 ```
 
 `./scripts/package-skill.sh` 会生成 `dist/posthouse-skill.zip`，可以上传到 Claude。

@@ -230,6 +230,12 @@ def _session_markdown(b: dict) -> str:
     for j in b["recent_journal"]:
         out += [f"## Recent journal: {j['path']}", j["content"] or "", ""]
     out += ["## Files", *([f"- {f}" for f in b["files"]] or ["_(empty)_"]), ""]
+    t = b.get("transcripts") or {}
+    if t.get("count"):
+        out += ["## Saved conversations",
+                f"{t['count']} raw conversation transcript(s) in `transcripts/`, saved automatically by agent hooks. "
+                "Read them only when STATUS.md and the journal are not enough. Latest: "
+                + ", ".join(f"`{x}`" for x in t["latest"]), ""]
     if b["recent_changes"]:
         out += ["## Recent changes", *[f"- {c['time']} · {c['author']} · {c['message']}" for c in b["recent_changes"]], ""]
     out += ["## Protocol", b["protocol"]]

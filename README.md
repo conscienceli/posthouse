@@ -46,6 +46,9 @@ your server. Agents reach it in three ways:
 - **Hand-off protocol.** Each workspace starts with `AGENTS.md`, `STATUS.md`, `DECISIONS.md`,
   `journal/`, `memory/` and `files/`. `log_progress` writes a dated hand-off note and can update
   `STATUS.md` at the same time.
+- **Conversation auto-save (Claude Code).** One command installs hooks that save the conversation
+  to the workspace before and after every turn, with secrets redacted. See
+  [docs/skill.md](docs/skill.md#save-conversations-automatically-claude-code).
 - **Safe concurrent edits.** Writes can be optimistic: they fail if the file changed since you read
   it. Exact-text `edit_file` and `append_file` avoid rewriting whole files.
 - **Works with today's MCP clients.** The server speaks the stateless **2026-07-28** protocol
@@ -167,6 +170,13 @@ export POSTHOUSE_URL=https://posthouse.example.com POSTHOUSE_USER=agent POSTHOUS
 python3 posthouse.py start my-project
 python3 posthouse.py read my-project STATUS.md
 python3 posthouse.py log my-project --summary "Drafted section 2" --next "Review section 3"
+```
+
+To save every Claude Code turn to a workspace (before and after each turn, secrets redacted):
+
+```bash
+python3 posthouse.py login --url https://posthouse.example.com --token ph_…
+python3 posthouse.py install-hooks --workspace my-project
 ```
 
 `./scripts/package-skill.sh` builds `dist/posthouse-skill.zip` for upload to Claude.

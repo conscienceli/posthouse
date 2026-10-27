@@ -1,6 +1,6 @@
 ---
 name: posthouse
-description: Read and write shared project workspaces (files, STATUS.md, decisions, hand-off journal, memory) on a Posthouse server so work continues across Claude, ChatGPT, Gemini and other agents. Use when the user mentions a shared/cross-agent workspace, Posthouse, project memory on their server, gives a Posthouse URL with a password or token, or asks to continue or hand off a project another agent worked on.
+description: Read and write shared project workspaces (files, STATUS.md, decisions, hand-off journal, memory) on a Posthouse server so work continues across Claude, ChatGPT, Gemini and other agents. Use when the user mentions a shared/cross-agent workspace, Posthouse, project memory on their server, gives a Posthouse URL with a password or token, asks to continue or hand off a project another agent worked on, or wants the conversation saved to a workspace (automatically on every turn in Claude Code).
 ---
 
 # Posthouse
@@ -30,6 +30,9 @@ export POSTHOUSE_URL="https://posthouse.example.com" POSTHOUSE_USER="agent" POST
 PH="python3 <this-skill-dir>/scripts/posthouse.py"
 $PH info        # checks the connection and shows your access level
 ```
+
+`$PH login --url … --token …` (or `--user`/`--password`) checks the credentials and saves them to
+`~/.config/posthouse/config.json` (readable only by the user), so later commands need no variables.
 
 If `scripts/posthouse.py` is not next to this file, download it (it is a single file):
 
@@ -70,7 +73,8 @@ Never write the password or token into a workspace file, a commit message or a s
   `edit` (exact text replacement) or `append` over rewriting whole files.
 - **Layout**: `AGENTS.md` guide · `STATUS.md` current state · `DECISIONS.md` decision log
   (append, dated) · `journal/YYYY-MM-DD.md` hand-off notes (`log` writes these) ·
-  `memory/` long-lived facts and preferences · `files/` deliverables.
+  `memory/` long-lived facts and preferences · `files/` deliverables · `transcripts/` raw
+  conversation records (section 4; read them only when STATUS.md and the journal are not enough).
 - **History**: every change is a git commit with your `POSTHOUSE_AGENT` name. `$PH history <ws> [path]`
   shows it; `$PH read <ws> <path> --rev <commit>` reads an old version. Deleted files are
   recoverable, but still confirm with the user before deleting anything you did not create.
@@ -79,7 +83,34 @@ Never write the password or token into a workspace file, a commit message or a s
 - **Large outputs**: use `read --offset N --limit M` for long files; `pull <ws> <dir>` downloads a
   whole workspace; `push <ws> <local> [remote]` uploads a binary file.
 
-## 4. Command reference
+## 4. Save the conversation automatically (Claude Code)
+
+In Claude Code (CLI, desktop app, IDE) this skill can save the whole conversation into the
+workspace on every turn: once **before** the turn (with the user's new message) and once **after**
+it. It uses Claude Code hooks (`UserPromptSubmit` and `Stop`). Set it up only when the user asks
+(for example "save our conversations to the workspace"), because it changes their Claude Code settings:
+
+```bash
+$PH login --url "$POSTHOUSE_URL" --token "$POSTHOUSE_TOKEN"   # once per machine; or --user/--password
+$PH install-hooks --workspace <ws>    # hooks in ~/.claude/settings.json; links this folder to <ws>
+```
+
+- Saved to `transcripts/<date>_<session>/part-001.md`, `part-002.md`, … (about 200 KB each; only
+  the newest part changes). A local copy is kept under `~/.cache/posthouse/transcripts/`.
+- Redacted before upload: tokens and API keys, passwords in commands and URLs, the saved
+  credentials, and values of secret-looking environment variables. Thinking and injected system
+  context are left out; long tool output is shortened.
+- Each project folder saves to the workspace linked with `$PH use <ws>` (`$PH start <ws>` links a
+  folder that has no link yet). Folders without a link are saved only locally.
+- The hook prints nothing and always exits 0, so an unreachable server never blocks the
+  conversation. Log: `~/.cache/posthouse/hook.log`.
+- `--scope local` installs for the current project only (`.claude/settings.local.json`).
+  Remove with `$PH uninstall-hooks [--scope …]`.
+- To save once without hooks (Claude Code or Cowork): `$PH save-transcript -w <ws>`, or
+  `$PH save-transcript -o conversation.md` for a local file. claude.ai chats have no transcript
+  file; use `log` to hand off there.
+
+## 5. Command reference
 
 ```
 posthouse.py info | ls | create NAME [-d DESC] [--workspace-password PW] [--empty]
@@ -89,11 +120,13 @@ posthouse.py edit WS PATH --old TEXT --new TEXT [--all] [--expect V]   (or --old
 posthouse.py mv WS SRC DST [--overwrite] | rm WS PATH [-r] | mkdir WS PATH
 posthouse.py search QUERY [-w WS] | history WS [PATH] [-n N] | log WS --summary S [--next N] [--status-file F]
 posthouse.py pull WS [DIR] | push WS LOCAL [REMOTE]
+posthouse.py login | use [WS] [--clear] | save-transcript [-w WS] [-o FILE]
+posthouse.py install-hooks [--workspace WS] [--scope user|local|project] | uninstall-hooks [--scope …] [--all]
 ```
 
 Add `--json` to `ls`, `tree`, `read`, `search`, `history` for machine-readable output.
 
-## 5. Without the CLI (curl)
+## 6. Without the CLI (curl)
 
 ```bash
 AUTH=(-u "$POSTHOUSE_USER:$POSTHOUSE_PASSWORD" -H "X-Posthouse-Agent: $POSTHOUSE_AGENT")
@@ -107,7 +140,7 @@ curl -s "${AUTH[@]}" -X POST -H 'Content-Type: application/json' \
 
 URL-encode workspace names that are not plain ASCII. Full API: `$POSTHOUSE_URL/api/docs`.
 
-## 6. Troubleshooting
+## 7. Troubleshooting
 
 - `401` wrong password/token, or a workspace password used with the wrong `POSTHOUSE_USER`.
 - `404` workspace name typo, or your credential is limited to another workspace.

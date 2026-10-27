@@ -55,6 +55,57 @@ Set the environment variables in your shell profile:
 export POSTHOUSE_URL=https://posthouse.example.com POSTHOUSE_USER=agent POSTHOUSE_PASSWORD=… POSTHOUSE_AGENT="Codex"
 ```
 
+## Save conversations automatically (Claude Code)
+
+The CLI can register two [Claude Code hooks](https://code.claude.com/docs/en/hooks) that save the
+conversation to a workspace on every turn:
+
+| Hook | When | What is saved |
+|---|---|---|
+| `UserPromptSubmit` | before each turn | the conversation so far plus the new message (marked "turn starting") |
+| `Stop` | after each turn | the conversation including Claude's final reply |
+
+```bash
+python3 posthouse.py login --url https://posthouse.example.com --token ph_…   # or --user/--password
+cd ~/code/my-project
+python3 posthouse.py install-hooks --workspace my-project
+```
+
+`login` checks the credentials and stores them in `~/.config/posthouse/config.json` (mode 600),
+because Claude Code starts hooks with its own environment. `install-hooks` adds the hooks to
+`~/.claude/settings.json` (`--scope local` writes `.claude/settings.local.json` for one project) and
+links the current folder to the workspace. Other folders are linked with `posthouse.py use WS`, or
+automatically the first time an agent runs `posthouse.py start WS` there.
+
+How it works:
+
+- The transcript is read from Claude Code's session file and saved as Markdown under
+  `transcripts/<date>_<session>/part-NNN.md`. Parts are about 200 KB; earlier parts never change,
+  so each turn uploads only the newest part. Unchanged files are not re-committed.
+- Secrets are redacted before anything leaves the machine: GitHub/OpenAI/Anthropic/AWS/Slack/Google
+  keys, Posthouse tokens, bearer and basic credentials, passwords in URLs, `curl -u` and
+  `--password` arguments, `NAME_TOKEN=…`-style assignments, private keys, the saved credentials and
+  the values of secret-looking environment variables. Review a few transcripts before relying on it.
+- Thinking, system reminders, skill bodies and subagent conversations are left out; tool results are
+  cut to 2,000 characters.
+- A local copy is kept in `~/.cache/posthouse/transcripts/`. If the server is unreachable, the next
+  turn uploads what is missing.
+- The hook writes nothing to stdout (on `UserPromptSubmit` that would be added to Claude's context)
+  and always exits 0. Each run takes well under a second; the timeout is 30 seconds.
+  Results are logged to `~/.cache/posthouse/hook.log`.
+- The session bundle (`start`) lists `transcripts/` but keeps transcript commits out of
+  "recent changes", so new agents are not flooded.
+
+Remove the hooks with `python3 posthouse.py uninstall-hooks` (add `--all` for every settings file).
+
+Without hooks you can save once with `python3 posthouse.py save-transcript -w WS`, or write the
+conversation to a local file with `-o conversation.md`. This needs a Claude Code transcript, so it
+works in Claude Code and Cowork. Web chats (claude.ai, ChatGPT, Gemini) don't expose one: use
+`log` or the MCP `log_progress` tool to hand off there.
+
+Cowork in the cloud starts each task in a fresh container. Ask Claude to run `login` and
+`install-hooks` at the start of the task if you want its turns saved.
+
 ## CLI reference
 
 | Command | Description |
@@ -73,8 +124,14 @@ export POSTHOUSE_URL=https://posthouse.example.com POSTHOUSE_USER=agent POSTHOUS
 | `log WS --summary S [--next N] [--status-file F] [--agent-name A]` | Hand-off note, optional new STATUS.md |
 | `history WS [PATH] [-n N]` | Recent commits |
 | `pull WS [DIR]` / `push WS LOCAL [REMOTE]` | Download a workspace / upload a file |
+| `login` | Check `--url` and `--token` (or `--user`/`--password`) and save them to the config file |
+| `use [WS] [--clear]` | Link the current folder to a workspace (used by the hooks); without WS, show the link |
+| `save-transcript [-w WS] [-o FILE] [--transcript F]` | Save the current Claude Code conversation once |
+| `install-hooks [--workspace WS] [--scope user\|local\|project]` | Save every turn automatically |
+| `uninstall-hooks [--scope …] [--all]` | Remove the hooks |
 
 Global options: `--url`, `--user`, `--password`, `--token` and `--agent`, or the environment
-variables `POSTHOUSE_URL`, `POSTHOUSE_USER`, `POSTHOUSE_PASSWORD`, `POSTHOUSE_TOKEN` and `POSTHOUSE_AGENT`.
+variables `POSTHOUSE_URL`, `POSTHOUSE_USER`, `POSTHOUSE_PASSWORD`, `POSTHOUSE_TOKEN` and `POSTHOUSE_AGENT`,
+or the config file written by `login` (`POSTHOUSE_CONFIG` overrides its location).
 
 Exit codes: `0` ok, `1` error, `3` version conflict (re-read and retry).

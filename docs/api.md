@@ -38,7 +38,7 @@ Errors look like `{"error": "<code>", "message": "..."}` with status 400, 401, 4
 | `POST /api/workspaces/{ws}/mkdir` `{path}` | access | Create folder |
 | `DELETE /api/workspaces/{ws}/file?path=&recursive=` | access | Delete (recoverable from history) |
 | `GET /api/workspaces/{ws}/raw/{path}?revision=&download=` | access | Raw bytes; `X-Posthouse-Version` / `ETag` headers |
-| `PUT /api/workspaces/{ws}/raw/{path}` | access | Raw body write; `If-Match: <version>`, `If-None-Match: *`, `X-Posthouse-Message`; `?append=true` appends |
+| `PUT /api/workspaces/{ws}/raw/{path}` | access | Raw body write; `If-Match: <version>`, `If-None-Match: *`, `X-Posthouse-Message`; `?append=true` appends. Writing identical content returns `unchanged: true` and records nothing |
 | `POST /api/workspaces/{ws}/upload` (multipart `dir`, `files`) | access | Upload files |
 | `GET /api/workspaces/{ws}/archive` | access | Zip of the workspace (without `.git`) |
 | `GET /api/workspaces/{ws}/session?format=json\|md` | access | Session bundle (same as MCP `start_session`) |

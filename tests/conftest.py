@@ -1,10 +1,16 @@
 import base64
+import importlib.util
+import socket
+import threading
+import time
+from pathlib import Path
 import hashlib
 import re
 import secrets
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+import uvicorn
 from fastapi.testclient import TestClient
 
 from posthouse.app import create_app
@@ -87,3 +93,53 @@ def call_tool(client, headers, name, args=None, path="/mcp"):
     assert r.status_code == 200, r.text
     res = r.json()["result"]
     return res["content"][0]["text"], res["isError"]
+
+
+# ------------------------------------------------ live server + CLI (test_cli, test_transcripts)
+POSTHOUSE_PY = Path(__file__).resolve().parents[1] / "skills" / "posthouse" / "scripts" / "posthouse.py"
+
+
+def load_cli():
+    spec = importlib.util.spec_from_file_location("posthouse_cli", POSTHOUSE_PY)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@pytest.fixture(scope="module")
+def server(tmp_path_factory):
+    data = tmp_path_factory.mktemp("cli")
+    settings = Settings.from_env(data_dir=str(data), admin_password="admin", agent_password="agent")
+    sock = socket.socket()
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    srv = uvicorn.Server(uvicorn.Config(create_app(settings), host="127.0.0.1", port=port, log_level="warning"))
+    th = threading.Thread(target=srv.run, daemon=True)
+    th.start()
+    for _ in range(100):
+        if srv.started:
+            break
+        time.sleep(0.05)
+    yield f"http://127.0.0.1:{port}"
+    srv.should_exit = True
+    th.join(timeout=5)
+
+
+@pytest.fixture
+def isolated(tmp_path, monkeypatch):
+    """Keep the CLI away from the real home: config, cache, Claude settings and transcripts."""
+    for k in ("POSTHOUSE_URL", "POSTHOUSE_USER", "POSTHOUSE_PASSWORD", "POSTHOUSE_TOKEN", "POSTHOUSE_AGENT",
+              "POSTHOUSE_WORKSPACE", "CLAUDE_PROJECT_DIR", "CLAUDE_CODE_SESSION_ID"):
+        monkeypatch.delenv(k, raising=False)
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("POSTHOUSE_CONFIG", str(home / ".config" / "posthouse" / "config.json"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(home / ".cache"))
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    monkeypatch.setenv("no_proxy", "127.0.0.1,localhost")
+    project = tmp_path / "project"
+    project.mkdir()
+    monkeypatch.chdir(project)
+    return home

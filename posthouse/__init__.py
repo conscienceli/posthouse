@@ -1,3 +1,3 @@
 """Posthouse (驿站): shared, versioned memory for all your AI agents (Claude, ChatGPT, Gemini, CLIs)."""
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"

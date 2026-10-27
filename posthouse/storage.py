@@ -71,6 +71,9 @@ def now_iso(ts: float | None = None) -> str:
         timespec="seconds").replace("+00:00", "Z")
 
 
+TRANSCRIPTS_DIR = "transcripts"  # conversation records saved by agent hooks
+
+
 def version_of(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()[:16]
 
@@ -419,7 +422,8 @@ class Workspaces:
             raise Forbidden("Path escapes the workspace.")
         return p
 
-    def tree(self, ws: dict, path: str = "", recursive: bool = False, max_entries: int = 5000) -> dict:
+    def tree(self, ws: dict, path: str = "", recursive: bool = False, max_entries: int = 5000,
+             skip: tuple = ()) -> dict:
         rel = clean_rel(path, allow_root=True)
         base = self.resolve(ws, "")
         start = self.resolve(ws, rel)
@@ -437,7 +441,7 @@ class Workspaces:
             except OSError:
                 return
             for item in items:
-                if item.name == ".git":
+                if item.name == ".git" or (d == base and item.name in skip):
                     continue
                 if len(entries) >= max_entries:
                     truncated = True
@@ -541,6 +545,10 @@ class Workspaces:
                 raise StorageError(f"'{rel}' is a directory.")
             self._expect(p, rel, expected_version)
             created = not p.exists()
+            if not created and p.is_file() and p.stat().st_size == len(data) and p.read_bytes() == data:
+                # same content: nothing to record (keeps history clean for repeated saves)
+                return {"path": rel, "version": version_of(data), "size": len(data), "created": False,
+                        "unchanged": True}
             self._atomic_write(p, data)
             self._commit(self.dir_of(ws), message or f"{'Create' if created else 'Update'} {rel}", actor)
             self.touch(ws)
@@ -825,8 +833,14 @@ class Workspaces:
                 journal.append({"path": f"journal/{f.name}",
                                 "content": self._read_text(ws, f"journal/{f.name}", 6000, tail=True)})
         tree = [e["path"] + ("/" if e["type"] == "dir" else "")
-                for e in self.tree(ws, "", recursive=True, max_entries=400)["entries"]
+                for e in self.tree(ws, "", recursive=True, max_entries=400, skip=(TRANSCRIPTS_DIR,))["entries"]
                 if e["path"].count("/") <= 2]
+        tdir = self.dir_of(ws) / TRANSCRIPTS_DIR
+        saved = sorted((d.name for d in tdir.iterdir() if d.is_dir()), reverse=True) if tdir.is_dir() else []
+        if tdir.is_dir():
+            tree.append(f"{TRANSCRIPTS_DIR}/")
+        changes = [c for c in self.history(ws, limit=60)
+                   if not c["files"] or not all(f["path"].startswith(TRANSCRIPTS_DIR + "/") for f in c["files"])]
         return {
             "workspace": self.public(ws, stats=False),
             "agents_md": self._read_text(ws, "AGENTS.md"),
@@ -834,8 +848,8 @@ class Workspaces:
             "decisions_md_tail": self._read_text(ws, "DECISIONS.md", 4000, tail=True),
             "recent_journal": journal,
             "files": tree,
-            "recent_changes": [{k: c[k] for k in ("short", "author", "time", "message")}
-                               for c in self.history(ws, limit=10)],
+            "recent_changes": [{k: c[k] for k in ("short", "author", "time", "message")} for c in changes[:10]],
+            "transcripts": {"count": len(saved), "latest": [f"{TRANSCRIPTS_DIR}/{n}/" for n in saved[:5]]},
             "protocol": (
                 "1) Follow AGENTS.md. 2) STATUS.md is the single source of truth for current state: "
                 "keep it short and current. 3) Record decisions in DECISIONS.md (append). "

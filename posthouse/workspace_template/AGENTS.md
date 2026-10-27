@@ -32,6 +32,7 @@ written here.
 | `journal/` | One file per day with session hand-off notes (`log_progress` writes here) |
 | `memory/` | Long-lived facts, preferences, glossary |
 | `files/` | Project deliverables and working files |
+| `transcripts/` | Raw conversation records saved automatically by agent hooks (optional). Read only when needed |
 
 ## Project rules
 
