@@ -357,9 +357,10 @@
       h('div', { class: 'row' }, h('div', { class: 'title grow' }, w.name),
         w.has_password ? h('span', { class: 'badge warn', title: t('ws.protected') }, '🔒 ' + t('ws.protected')) : null),
       h('div', { class: 'desc' }, w.description || '—'),
-      h('div', { class: 'meta' }, h('span', null, t('ws.files', { n: w.file_count })), h('span', null, fmtBytes(w.total_bytes)),
-        h('span', { title: absTime(w.updated_at) }, t('ws.updated', { t: relTime(w.updated_at) })),
-        h('button', { class: 'btn sm', style: 'margin-left:auto', title: t('setup.title'),
+      h('div', { class: 'card-foot' },
+        h('div', { class: 'meta' }, h('span', null, t('ws.files', { n: w.file_count })), h('span', null, fmtBytes(w.total_bytes)),
+          h('span', { title: absTime(w.updated_at) }, t('ws.updated', { t: relTime(w.updated_at) }))),
+        h('button', { class: 'btn sm', title: t('setup.title'),
           onclick: (e) => { e.preventDefault(); e.stopPropagation(); setupDialog(w.name); } }, '⧉ ' + t('setup.button'))));
   }
 

@@ -93,8 +93,14 @@ label.field > span { display: block; font-weight: 600; font-size: 13px; margin-b
 .ws-card { display: flex; flex-direction: column; gap: 8px; cursor: pointer; transition: border-color .12s, box-shadow .12s; color: var(--fg); }
 .ws-card:hover { border-color: var(--accent); box-shadow: var(--shadow); text-decoration: none; }
 .ws-card .title { font-weight: 650; font-size: 15px; overflow-wrap: anywhere; }
-.ws-card .desc { color: var(--muted); font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.6em; }
+.ws-card .desc { color: var(--muted); font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5; min-height: 3em; }  /* always two lines tall */
 .ws-card .meta { color: var(--faint); font-size: 12.5px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+/* Footer: one line of info on the left, the button on the right, always at the bottom of the card */
+.ws-card .card-foot { display: flex; align-items: center; gap: 10px; margin-top: auto; }
+.ws-card .card-foot .meta { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow: hidden; }
+.ws-card .card-foot .meta span { white-space: nowrap; flex-shrink: 0; }
+.ws-card .card-foot .meta span:last-child { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ws-card .card-foot .btn { flex-shrink: 0; white-space: nowrap; }
 .empty { text-align: center; color: var(--muted); padding: 50px 20px; border: 1px dashed var(--line-strong); border-radius: var(--radius); }
 
 /* tabs */
