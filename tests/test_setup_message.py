@@ -93,3 +93,45 @@ def test_pasted_commands_work_in_a_fresh_environment(server, tmp_path):
     assert {"UserPromptSubmit", "Stop"} <= set(settings["hooks"])
     cfg = json.loads((home / ".config" / "posthouse" / "config.json").read_text())
     assert cfg["token"].startswith("ph_") and cfg["projects"][os.path.realpath(project)] == "fresh-task"
+
+
+# ------------------------------------------------- server-level message (no workspace needed)
+def test_all_workspaces_message_uses_an_agent_token(client):
+    r = client.post("/api/setup-message", json={"lang": "en"}, headers=ADMIN)
+    assert r.status_code == 201, r.text
+    data = r.json()
+    msg = data["message"]
+    assert data["role"] == "agent" and "(all workspaces)" in data["token_name"]
+    assert msg.startswith("Please connect this task to my Posthouse server")
+    assert "posthouse.py ls" in commands(msg) and "--workspace" not in commands(msg)
+    assert "install-hooks --workspace NAME" in msg and "create NAME" in msg
+    token = re.search(r"--token (ph_[A-Za-z0-9_-]+)", msg).group(1)
+    bearer = {"Authorization": "Bearer " + token}
+    assert client.post("/api/workspaces", json={"name": "made-by-claude"}, headers=bearer).status_code == 201
+    assert [w["name"] for w in client.get("/api/workspaces", headers=bearer).json()["workspaces"]] == ["made-by-claude"]
+    assert client.post("/api/setup-message", json={}, headers=AGENT).status_code == 403
+    zh = client.post("/api/setup-message", json={"lang": "zh-CN"}, headers=ADMIN).json()["message"]
+    assert zh.startswith("请把这个任务接入我的 Posthouse 服务器")
+
+
+@pytest.mark.skipif(not (shutil.which("bash") and shutil.which("curl")), reason="needs bash and curl")
+def test_all_workspaces_message_works_on_an_empty_server(server, tmp_path):
+    req = urllib.request.Request(server + "/api/setup-message", method="POST", data=b"{}",
+                                 headers={**basic("admin", "admin"), "Content-Type": "application/json"})
+    msg = json.loads(urllib.request.urlopen(req, timeout=10).read())["message"]
+    home, project = tmp_path / "home", tmp_path / "project"
+    home.mkdir()
+    project.mkdir()
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("POSTHOUSE_", "XDG_", "CLAUDE_"))}
+    env.update(HOME=str(home), NO_PROXY="127.0.0.1,localhost", no_proxy="127.0.0.1,localhost")
+    run = lambda script: subprocess.run(["bash", "-e", "-c", script], cwd=project, env=env,  # noqa: E731
+                                        capture_output=True, text=True, timeout=120)
+    r = run(commands(msg))
+    assert r.returncode == 0, r.stderr + r.stdout
+    # what the message asks Claude to do next, once the user names the project
+    cli = "python3 ~/.claude/skills/posthouse/scripts/posthouse.py"
+    r = run(f"{cli} create thesis -d 'My thesis' && {cli} install-hooks --workspace thesis && {cli} start thesis")
+    assert r.returncode == 0, r.stderr + r.stdout
+    assert "# Workspace: thesis" in r.stdout
+    cfg = json.loads((home / ".config" / "posthouse" / "config.json").read_text())
+    assert cfg["projects"][os.path.realpath(project)] == "thesis"

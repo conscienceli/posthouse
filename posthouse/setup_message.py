@@ -51,7 +51,9 @@ def _strings(lang: str | None) -> dict:
     return strings
 
 
-def build_message(workspace: str, base_url: str, token: str, agent: str = "Claude", lang: str | None = None) -> str:
+def build_message(workspace: str | None, base_url: str, token: str, agent: str = "Claude",
+                  lang: str | None = None) -> str:
+    """workspace=None: the token has agent access and Claude chooses or creates the workspace itself."""
     s = _strings(lang)
 
     def t(key: str, **kw) -> str:
@@ -59,13 +61,20 @@ def build_message(workspace: str, base_url: str, token: str, agent: str = "Claud
 
     q = shlex.quote
     skill_url = base_url + SKILL_PATH if skill_zip() is not None else GITHUB_SKILL_URL
-    commands = "\n".join([
-        f"mkdir -p ~/.claude/skills && curl -fsSL {q(skill_url)} -o /tmp/posthouse-skill.zip"
-        " && python3 -m zipfile -e /tmp/posthouse-skill.zip ~/.claude/skills/",
-        f"{CLI} login --url {q(base_url)} --token {q(token)} --agent {q(agent)}",
-        f"{CLI} install-hooks --workspace {q(workspace)}",
-        f"{CLI} start {q(workspace)}",
-    ])
+    install = (f"mkdir -p ~/.claude/skills && curl -fsSL {q(skill_url)} -o /tmp/posthouse-skill.zip"
+               " && python3 -m zipfile -e /tmp/posthouse-skill.zip ~/.claude/skills/")
+    login = f"{CLI} login --url {q(base_url)} --token {q(token)} --agent {q(agent)}"
+    if workspace is None:
+        return "\n".join([
+            t("setup.msgIntroServer"), "",
+            f"- {t('setup.msgServer')}: {base_url}",
+            f"- {t('setup.msgToken')}: {token} {t('setup.msgTokenNoteAgent')}", "",
+            t("setup.msgRun"), "",
+            "```bash", install, login, f"{CLI} ls", "```", "",
+            t("setup.msgAfterServer", cli=CLI),
+        ]) + "\n"
+    commands = "\n".join([install, login, f"{CLI} install-hooks --workspace {q(workspace)}",
+                          f"{CLI} start {q(workspace)}"])
     return "\n".join([
         t("setup.msgIntro", ws=workspace), "",
         f"- {t('setup.msgServer')}: {base_url}",

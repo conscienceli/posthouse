@@ -333,14 +333,22 @@
       const q = filter.value.trim().toLowerCase();
       const items = data.workspaces.filter((w) => !q || w.name.toLowerCase().includes(q) || (w.description || '').toLowerCase().includes(q));
       grid.replaceChildren(...items.map(wsCard));
-      if (!data.workspaces.length) grid.replaceChildren(h('div', { class: 'empty', style: 'grid-column:1/-1' }, t('ws.empty')));
+      if (!data.workspaces.length) {
+        grid.replaceChildren(h('div', { class: 'empty stack', style: 'grid-column:1/-1;align-items:center' },
+          h('div', null, t('ws.empty')), h('div', { class: 'muted' }, t('setup.emptyHint')),
+          h('div', { class: 'row wrap', style: 'justify-content:center' },
+            h('button', { class: 'btn primary', onclick: () => setupDialog(null) }, '⧉ ' + t('setup.buttonAll')),
+            h('button', { class: 'btn', onclick: newWorkspaceDialog }, '+ ' + t('ws.new')))));
+      }
     };
     filter.addEventListener('input', draw);
     draw();
     return h('div', null,
       h('div', { class: 'page-head' },
         h('div', { class: 'grow' }, h('h1', null, t('ws.title'), ' ', h('span', { class: 'faint' }, '(' + data.workspaces.length + ')'))),
-        filter, skillButton(false), h('button', { class: 'btn primary', onclick: newWorkspaceDialog }, '+ ' + t('ws.new'))),
+        filter, skillButton(false),
+        h('button', { class: 'btn', title: t('setup.introAll'), onclick: () => setupDialog(null) }, '⧉ ' + t('setup.buttonAll')),
+        h('button', { class: 'btn primary', onclick: newWorkspaceDialog }, '+ ' + t('ws.new'))),
       grid);
   }
 
@@ -766,17 +774,18 @@
     const agent = h('input', { type: 'text', value: 'Claude', maxlength: 80 });
     const err = h('div', { class: 'err-text' });
     const body = h('div', { class: 'stack' },
-      h('p', { class: 'muted', style: 'margin:0' }, t('setup.intro', { ws: wsName })),
+      h('p', { class: 'muted', style: 'margin:0' }, wsName ? t('setup.intro', { ws: wsName }) : t('setup.introAll')),
+      wsName ? null : h('div', { class: 'banner warn' }, t('setup.allWarning')),
       h('label', { class: 'field' }, h('span', null, t('setup.expires')), exp),
       h('label', { class: 'field' }, h('span', null, t('setup.agent')), agent), err);
     const createBtn = h('button', { class: 'btn primary' }, t('setup.create'));
-    const m = modal({ title: t('setup.title') + ' · ' + wsName, wide: true, body,
+    const m = modal({ title: t('setup.title') + ' · ' + (wsName || t('setup.allWorkspaces')), wide: true, body,
       foot: [h('button', { class: 'btn', onclick: () => m.close() }, t('common.close')), createBtn] });
     createBtn.addEventListener('click', async () => {
       err.textContent = '';
       createBtn.disabled = true;
       try {
-        const r = await api('POST', wsApi(wsName) + '/setup-message', {
+        const r = await api('POST', wsName ? wsApi(wsName) + '/setup-message' : '/api/setup-message', {
           expires_days: exp.value ? parseInt(exp.value, 10) : null, agent: agent.value.trim() || null, lang: locale() });
         const copied = await copyText(r.message);
         let reachable = true;
@@ -794,13 +803,13 @@
   function setupCard(wsName, workspaces) {
     let pick = null;
     if (!wsName) {
-      if (!workspaces || !workspaces.length) return null;
-      pick = h('select', { style: 'max-width:260px' }, workspaces.map((w) => h('option', { value: w.name }, w.name)));
+      pick = h('select', { style: 'max-width:300px', 'aria-label': t('common.workspace') },
+        h('option', { value: '' }, t('setup.allOption')), (workspaces || []).map((w) => h('option', { value: w.name }, w.name)));
     }
     return h('div', { class: 'card stack' }, h('h3', null, t('setup.title')),
       h('p', { class: 'muted', style: 'margin:0' }, t('setup.cardText')),
       h('div', { class: 'row wrap' }, pick,
-        h('button', { class: 'btn primary', onclick: () => setupDialog(wsName || pick.value) }, '⧉ ' + t('setup.button'))));
+        h('button', { class: 'btn primary', onclick: () => setupDialog(wsName || pick.value || null) }, '⧉ ' + t('setup.button'))));
   }
 
   const SKILL_ZIP = '/skill/posthouse-skill.zip';

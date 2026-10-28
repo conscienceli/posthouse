@@ -96,6 +96,12 @@ workspaces that agents created too: the admin can issue a token for any workspac
   on port 443; the dialog warns when the address is plain HTTP or uses another port.
 - API: `POST /api/workspaces/{ws}/setup-message` (admin) with `{expires_days?, lang?, agent?}`.
 
+**No workspace yet?** The Workspaces page has **Setup message (all)** (also when the list is empty),
+and the Connect agents page offers "All workspaces". That message carries an *agent* token: Claude
+can list and create workspaces, so it asks which project you are working on, creates the workspace
+if needed, installs the hooks and starts. The token can read and write every workspace, so prefer
+the per-workspace message when you work on one project. API: `POST /api/setup-message` (admin).
+
 The server also offers the skill at `/skill/posthouse-skill.zip` (no sign-in needed), which is
 handy for uploading it to Claude's skill settings.
 

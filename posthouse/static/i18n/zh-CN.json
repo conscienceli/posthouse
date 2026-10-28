@@ -196,5 +196,14 @@
   "skill.title": "智能体 Skill",
   "skill.text": "教 Claude 和其他智能体如何使用你的工作区，附带一个小的命令行工具（Python，无需安装依赖），也负责为 Claude Code 安装对话自动保存的钩子。",
   "skill.claudeApp": "claude.ai、Claude 桌面版和 Cowork：下载压缩包，在 Claude 设置的 Skills 中上传，之后每个对话和任务都能使用。",
-  "skill.claudeCode": "Claude Code：在运行 Claude Code 的电脑上执行："
+  "skill.claudeCode": "Claude Code：在运行 Claude Code 的电脑上执行：",
+  "setup.buttonAll": "接入指令（全部）",
+  "setup.allWorkspaces": "全部工作区",
+  "setup.allOption": "全部工作区（由 Claude 选择或新建）",
+  "setup.introAll": "这会创建一个智能体权限的令牌，并生成一条包含服务器地址和该令牌的消息。把它作为新的 Cowork 或 Claude Code 任务的第一条消息发出，Claude 就会安装 Skill 并登录，问你要做哪个项目（或为它新建工作区），然后开启对话自动保存并载入项目。",
+  "setup.allWarning": "这个令牌可以读写所有工作区，也能新建工作区。如果只做一个项目，请用该工作区上的「接入指令」按钮，那里的令牌只能访问这一个工作区。",
+  "setup.emptyHint": "把接入指令复制到新的 Claude 任务里，Claude 会为你的项目创建工作区。",
+  "setup.msgIntroServer": "请把这个任务接入我的 Posthouse 服务器（我的各个 AI 智能体在那里共享项目文件和记忆），并在之后每轮对话开始前和结束后，自动把对话保存到项目的工作区。",
+  "setup.msgTokenNoteAgent": "（智能体权限：可以查看、新建、读写所有工作区；不要把它写进工作区文件或总结里）",
+  "setup.msgAfterServer": "然后按 ~/.claude/skills/posthouse/SKILL.md 里的说明工作。先问我要做哪个项目并使用对应的工作区，没有的话用 `{cli} create 名称 -d \"简短描述\"` 新建。接着运行 `{cli} install-hooks --workspace 名称`，让每轮对话开始前和结束后都自动保存到那里；再运行 `{cli} start 名称`，并用几句话告诉我项目目前的进展。自动保存依赖 Claude Code 的钩子，在 Claude Code 和 Cowork 里可用；在其他环境里请跳过 install-hooks。"
 }

@@ -196,5 +196,14 @@
   "skill.title": "Agent skill",
   "skill.text": "Teaches Claude and other agents how to use your workspaces, with a small command-line tool (Python, no dependencies). It also installs the conversation auto-save hooks for Claude Code.",
   "skill.claudeApp": "claude.ai, the Claude desktop app and Cowork: download the zip and upload it under Skills in Claude's settings. Every chat and task can then use it.",
-  "skill.claudeCode": "Claude Code: run this on the computer where Claude Code runs:"
+  "skill.claudeCode": "Claude Code: run this on the computer where Claude Code runs:",
+  "setup.buttonAll": "Setup message (all)",
+  "setup.allWorkspaces": "All workspaces",
+  "setup.allOption": "All workspaces (Claude picks or creates one)",
+  "setup.introAll": "This creates a token with agent access and a message with the server address and that token. Paste it as the first message of a new Cowork or Claude Code task. Claude installs the skill and signs in, asks which project you are working on (or creates a workspace for it), turns on automatic conversation saving and loads the project.",
+  "setup.allWarning": "This token can read and write every workspace and create new ones. For a single project, use the Setup message button on that workspace: its token opens only that workspace.",
+  "setup.emptyHint": "Copy a setup message into a new Claude task and Claude creates the workspace for your project.",
+  "setup.msgIntroServer": "Please connect this task to my Posthouse server, where my AI agents share project files and memory, and save our conversation to the project's workspace automatically, before and after every turn.",
+  "setup.msgTokenNoteAgent": "(agent access: can list, create, read and write all workspaces; never copy it into workspace files or summaries)",
+  "setup.msgAfterServer": "Then follow the Posthouse skill in ~/.claude/skills/posthouse/SKILL.md. Ask me which project we are working on and use its workspace, or create one with `{cli} create NAME -d \"short description\"`. Then run `{cli} install-hooks --workspace NAME` so our conversation is saved there before and after every turn, run `{cli} start NAME`, and tell me in a few lines where the project stands. Automatic saving uses Claude Code hooks, so it works in Claude Code and Cowork. Anywhere else, skip install-hooks."
 }

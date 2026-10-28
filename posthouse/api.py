@@ -457,23 +457,35 @@ def delete_token(token_id: str, request: Request, p: Principal = Depends(admin))
     return {"revoked": True}
 
 
-@router.post("/workspaces/{name}/setup-message", status_code=201)
-def setup_message(name: str, body: SetupIn, request: Request, p: Principal = Depends(admin)):
-    """Create a token for this workspace only and return a message to paste into a new Claude task.
-
-    Tokens are stored hashed and can't be shown again, so every message gets a new token.
-    """
-    ctx = get_ctx(request)
-    ws = _ws(ctx, p, name)
+def _setup_message(ctx: Ctx, request: Request, p: Principal, body: SetupIn, ws: dict | None) -> dict:
+    """Tokens are stored hashed and can't be shown again, so every message gets a new token."""
     stamp = time.strftime("%Y-%m-%d %H:%M", time.gmtime())
-    token, row = ctx.auth.create_api_token(f"{ws['name']} · setup message {stamp}", "workspace", ws["id"],
-                                           body.expires_days)
+    if ws:
+        token, row = ctx.auth.create_api_token(f"{ws['name']} · setup message {stamp}", "workspace", ws["id"],
+                                               body.expires_days)
+    else:
+        token, row = ctx.auth.create_api_token(f"setup message {stamp} (all workspaces)", "agent", None,
+                                               body.expires_days)
     base = base_url(request)
     agent = clean_actor(body.agent) or "Claude"
-    ctx.db.log_activity(p.actor, "token.create", ws["name"], detail=f"{row['name']} (workspace)")
-    return {"message": build_message(ws["name"], base, token, agent, body.lang),
-            "token_id": row["id"], "token_name": row["name"], "base_url": base,
+    ctx.db.log_activity(p.actor, "token.create", ws["name"] if ws else None,
+                        detail=f"{row['name']} ({'workspace' if ws else 'agent'})")
+    return {"message": build_message(ws["name"] if ws else None, base, token, agent, body.lang),
+            "token_id": row["id"], "token_name": row["name"], "role": row["role"], "base_url": base,
             "expires_at": now_iso(row["expires_at"]) if row["expires_at"] else None}
+
+
+@router.post("/workspaces/{name}/setup-message", status_code=201)
+def setup_message(name: str, body: SetupIn, request: Request, p: Principal = Depends(admin)):
+    """A message for a new Claude task, with a token that opens only this workspace."""
+    ctx = get_ctx(request)
+    return _setup_message(ctx, request, p, body, _ws(ctx, p, name))
+
+
+@router.post("/setup-message", status_code=201)
+def setup_message_all(body: SetupIn, request: Request, p: Principal = Depends(admin)):
+    """A message for a new Claude task, with an agent token: all workspaces, and it can create new ones."""
+    return _setup_message(get_ctx(request), request, p, body, None)
 
 
 # -------------------------------------------------------------- admin: connections
