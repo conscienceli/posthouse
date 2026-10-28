@@ -70,7 +70,8 @@ def test_compact_all(store):
 def test_api_reports_size_and_compacts(client, ws):
     for i in range(30):
         client.put("/api/workspaces/demo/raw/notes.md", content=f"v{i}".encode() * 100, headers=AGENT)
-    detail = client.get("/api/workspaces/demo", headers=AGENT).json()
+    assert "history_bytes" not in client.get("/api/workspaces/demo", headers=AGENT).json()
+    detail = client.get("/api/workspaces/demo?usage=true", headers=AGENT).json()
     assert detail["history_bytes"] > 0
     assert client.post("/api/workspaces/demo/compact", headers=AGENT).status_code == 403
     r = client.post("/api/workspaces/demo/compact", headers=ADMIN).json()
@@ -86,3 +87,32 @@ def test_gc_interval_setting(tmp_path, monkeypatch):
 
 def test_info_reports_compaction_interval(client):
     assert client.get("/api/info").json()["history_compaction_hours"] == 24
+
+
+def test_settings_page_data_has_no_secrets(client, ws, settings):
+    r = client.get("/api/settings", headers=ADMIN)
+    assert r.status_code == 200
+    data = r.json()
+    text = r.text
+    assert settings.admin_password not in text and settings.agent_password not in text
+    assert data["agent_password_enabled"] is True and data["history_compaction_hours"] == 24
+    assert data["usage"]["workspaces"][0]["workspace"] == "demo"
+    assert data["usage"]["database_bytes"] > 0
+    assert client.get("/api/settings", headers=AGENT).status_code == 403
+
+
+def test_compact_all_endpoint_records_the_run(client, ws, settings):
+    for i in range(30):
+        client.put("/api/workspaces/demo/raw/notes.md", content=f"v{i}".encode() * 100, headers=AGENT)
+    client.post("/api/workspaces", json={"name": "other"}, headers=ADMIN)
+    assert client.post("/api/compact-all", headers=AGENT).status_code == 403
+    r = client.post("/api/compact-all", headers=ADMIN).json()
+    assert {x["workspace"]: x["compacted"] for x in r["results"]} == {"demo": True, "other": True}  # forced
+    last = r["last_compaction"]
+    assert last["by"] == "admin" and last["compacted"] == 2 and last["saved_bytes"] > 0
+    acts = client.get("/api/activity", headers=ADMIN).json()["activity"]
+    assert acts[0]["action"] == "history.compact" and acts[0]["detail"].startswith("all workspaces: 2 compacted")
+    # the record survives a restart
+    st = Workspaces(settings, DB(settings.db_path))
+    assert st.last_compaction()["saved_bytes"] == last["saved_bytes"]
+    assert client.get("/api/settings", headers=ADMIN).json()["last_compaction"]["by"] == "admin"

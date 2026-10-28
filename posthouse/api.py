@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import binascii
 import mimetypes
+import os
 import time
 from typing import Optional
 from urllib.parse import quote
@@ -204,10 +205,14 @@ def create_workspace(body: WorkspaceIn, request: Request, p: Principal = Depends
 
 
 @router.get("/workspaces/{name}")
-def get_workspace(name: str, request: Request, p: Principal = Depends(principal)):
+def get_workspace(name: str, request: Request, usage: bool = False, p: Principal = Depends(principal)):
+    """Details; `usage=true` also measures the change history on disk (slower for big workspaces)."""
     ctx = get_ctx(request)
     ws = _ws(ctx, p, name)
-    return {**ctx.store.public(ws), "history_bytes": ctx.store.history_bytes(ws)}
+    out = ctx.store.public(ws)
+    if usage:
+        out["history_bytes"] = ctx.store.history_bytes(ws)
+    return out
 
 
 @router.post("/workspaces/{name}/compact")
@@ -413,6 +418,36 @@ def activity(request: Request, workspace: Optional[str] = None, limit: int = 100
     for r in rows:
         r["time"] = now_iso(r.pop("ts"))
     return {"activity": rows}
+
+
+# ------------------------------------------------------------------- admin: server settings
+@router.get("/settings")
+def server_settings(request: Request, p: Principal = Depends(admin)):
+    """Effective configuration (never passwords) and disk use, for the admin Settings page."""
+    ctx = get_ctx(request)
+    s = ctx.settings
+    base = base_url(request)
+    return {
+        "version": __version__, "base_url": base, "mcp_url": f"{base}/mcp", "public_url": s.public_url or None,
+        "data_dir": str(s.data_dir), "git": ctx.store.git,
+        "history_compaction_hours": s.git_gc_hours if ctx.store.git else 0,
+        "last_compaction": ctx.store.last_compaction(),
+        "max_file_mb": s.max_file_bytes // (1024 * 1024),
+        "agent_password_enabled": bool(s.agent_password),
+        "access_token_minutes": s.access_token_ttl // 60, "refresh_token_days": s.refresh_token_ttl // 86400,
+        "session_hours": s.session_ttl // 3600,
+        "login_max_failures": s.login_max_failures, "login_window_minutes": max(1, s.login_window_seconds // 60),
+        "trusted_proxies": os.environ.get("POSTHOUSE_TRUSTED_PROXIES") or "127.0.0.1,::1",
+        "usage": ctx.store.usage(),
+    }
+
+
+@router.post("/compact-all")
+def compact_all_workspaces(request: Request, p: Principal = Depends(admin)):
+    """Compact the change history of every workspace now (it also runs automatically)."""
+    ctx = get_ctx(request)
+    results = ctx.store.compact_all(force=True, actor=p.actor)
+    return {"results": results, "last_compaction": ctx.store.last_compaction()}
 
 
 # ------------------------------------------------------------------- admin: tokens

@@ -770,18 +770,54 @@ class Workspaces:
                                  detail=f"{before // 1024} KB -> {after // 1024} KB")
         return {"workspace": ws["name"], "compacted": True, "before_bytes": before, "after_bytes": after}
 
-    def compact_all(self) -> list[dict]:
+    def compact_all(self, force: bool = False, actor: str = "system") -> list[dict]:
+        """Compact every workspace (force: even those with little new history) and record the run."""
         out = []
         for ws in self.list():
             try:
-                out.append(self.compact(ws))
+                out.append(self.compact(ws, force=force))
             except Exception as e:  # keep going; one broken repo must not stop the others
                 log.warning("Compacting history of %s failed: %s", ws["name"], e)
+                out.append({"workspace": ws["name"], "compacted": False, "reason": "failed"})
         done = [r for r in out if r.get("compacted")]
+        saved = sum(r["before_bytes"] - r["after_bytes"] for r in done)
         if done:
-            saved = sum(r["before_bytes"] - r["after_bytes"] for r in done)
             log.info("Compacted history of %d workspace(s), saved %.1f MB", len(done), saved / 1048576)
+        if actor != "system":
+            self.db.log_activity(actor, "history.compact", None,
+                                 detail=f"all workspaces: {len(done)} compacted, saved {saved // 1024} KB")
+        record = {"at": now_iso(), "by": actor, "checked": len(out), "compacted": len(done), "saved_bytes": saved}
+        try:
+            (self.settings.data_dir / "compaction.json").write_text(json.dumps(record), encoding="utf-8")
+        except OSError:
+            pass
         return out
+
+    def last_compaction(self) -> dict | None:
+        try:
+            data = json.loads((self.settings.data_dir / "compaction.json").read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else None
+        except (OSError, ValueError):
+            return None
+
+    def usage(self) -> dict:
+        """Disk use per workspace (files vs. change history), plus trash and database."""
+        rows = []
+        for ws in self.list():
+            history = self.history_bytes(ws)
+            total = self._dir_bytes(self.dir_of(ws))
+            rows.append({"workspace": ws["name"], "files_bytes": max(total - history, 0), "history_bytes": history})
+        rows.sort(key=lambda r: (-r["history_bytes"], r["workspace"]))
+        trash = self._dir_bytes(self.settings.trash_dir) if self.settings.trash_dir.is_dir() else 0
+        db = 0
+        for p in self.settings.data_dir.glob("posthouse.sqlite3*"):  # the database and its WAL files
+            try:
+                st = p.stat()
+                db += st.st_blocks * 512 if getattr(st, "st_blocks", None) is not None else st.st_size
+            except OSError:
+                pass
+        return {"workspaces": rows, "files_bytes": sum(r["files_bytes"] for r in rows),
+                "history_bytes": sum(r["history_bytes"] for r in rows), "trash_bytes": trash, "database_bytes": db}
 
     # ------------------------------------------------------------------ history
     def history(self, ws: dict, path: str | None = None, limit: int = 20) -> list[dict]:

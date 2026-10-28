@@ -25,10 +25,12 @@ Errors look like `{"error": "<code>", "message": "..."}` with status 400, 401, 4
 | `POST /api/login` `{password}` / `POST /api/logout` | — | Admin UI session cookie |
 | `GET /api/workspaces` | any | Workspaces visible to the caller (with file count, size, timestamps) |
 | `POST /api/workspaces` `{name, description?, password?, template?}` | agent, admin | Create |
-| `GET /api/workspaces/{ws}` | any with access | Details, including `history_bytes` (size of the change history) |
+| `GET /api/workspaces/{ws}?usage=` | any with access | Details; `usage=true` adds `history_bytes` (size of the change history) |
 | `PATCH /api/workspaces/{ws}` `{description?, password?, clear_password?, new_name?}` | admin (agent: description only) | Update |
 | `DELETE /api/workspaces/{ws}` | admin | Move to trash |
 | `POST /api/workspaces/{ws}/setup-message` `{expires_days?, lang?, agent?}` | admin | Creates a token for this workspace only and returns `{message, token_id, token_name, base_url, expires_at}`: a message to paste into a new Claude task |
+| `GET /api/settings` | admin | Effective configuration (no passwords), disk use per workspace, last compaction |
+| `POST /api/compact-all` | admin | Compact every workspace's history now → `{results[], last_compaction}` |
 | `POST /api/setup-message` `{expires_days?, lang?, agent?}` | admin | Same, with an agent token (all workspaces, can create new ones) for a task that picks or creates its workspace |
 | `POST /api/workspaces/{ws}/compact` | admin | Compact the change history now (`git gc`; also runs automatically) → `{compacted, before_bytes, after_bytes}` |
 | `GET /api/workspaces/{ws}/tree?path=&recursive=` | access | List entries |

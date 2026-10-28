@@ -61,7 +61,8 @@ your server. Agents reach it in three ways:
 - **Three password levels.** An admin password, an agent password, and an optional password per
   workspace (see below).
 - **Admin UI.** Workspaces, file browser and editor, upload, history and restore, access tokens,
-  connected apps (revoke OAuth grants), activity log, trash, and connection instructions.
+  connected apps (revoke OAuth grants), activity log, trash, connection instructions, and a
+  Settings page (disk use, compact all workspaces, effective configuration).
   English by default, with a language dropdown (English, 简体中文). See
   [Translations](#translations) to add more languages.
 - **Easy to run.** One Python process with SQLite and no external services. Run it with Docker,

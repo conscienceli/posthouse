@@ -236,6 +236,12 @@
       return;
     }
     state.lastHash = location.hash;
+    const route = parseRoute();
+    const v = state.filesView;
+    if (v && v.el.isConnected && route.page === 'workspace' && route.tab === 'files' && route.ws === v.ws) {
+      v.show(route.file || '');  // same workspace: update the tree highlight and the editor only
+      return;
+    }
     render();
   });
   function go(hash) { if (location.hash === hash) render(); else location.hash = hash; }
@@ -265,25 +271,47 @@
     if (seq !== renderSeq) return;
     if (!state.me || state.me.role !== 'admin') return renderLogin();
     const route = parseRoute();
-    const main = h('main');
-    $app.replaceChildren(topbar(route), main);
+    state.filesView = null;
     const pages = { workspaces: pageWorkspaces, workspace: pageWorkspace, tokens: pageTokens,
-      connections: pageConnections, activity: pageActivity, trash: pageTrash, connect: pageConnect };
+      connections: pageConnections, activity: pageActivity, trash: pageTrash, connect: pageConnect, settings: pageSettings };
     const fn = pages[route.page] || pageWorkspaces;
-    main.append(h('div', { class: 'muted' }, t('common.loading')));
+    // Keep the current page on screen until the next one is ready: no blank "Loading…" flash.
+    let main = $app.querySelector(':scope > main');
+    const oldTop = $app.querySelector(':scope > header.topbar');
+    if (main && oldTop) oldTop.replaceWith(topbar(route));
+    else {
+      main = h('main');
+      $app.replaceChildren(topbar(route), main);
+      main.append(h('div', { class: 'muted' }, t('common.loading')));
+    }
+    const pageKey = route.page + '|' + (route.ws || '');
+    const done = busy();
     try {
       const content = await fn(route, () => seq !== renderSeq);
       if (seq !== renderSeq) return;
       main.replaceChildren(content);
+      if (pageKey !== state.pageKey) window.scrollTo(0, 0);
+      state.pageKey = pageKey;
     } catch (e) {
       if (seq !== renderSeq) return;
       main.replaceChildren(h('div', { class: 'card' }, h('h2', null, t('common.error')), h('p', null, e.message)));
-    }
+    } finally { done(); }
+  }
+
+  // A thin progress bar at the top, shown only when something takes longer than 150 ms.
+  let busyCount = 0;
+  function busy() {
+    let shown = false;
+    const timer = setTimeout(() => { shown = true; busyCount++; document.body.classList.add('busy'); }, 150);
+    return () => {
+      clearTimeout(timer);
+      if (shown && --busyCount <= 0) { busyCount = 0; document.body.classList.remove('busy'); }
+    };
   }
 
   function topbar(route) {
     const links = [['workspaces', '#/'], ['tokens', '#/tokens'], ['connections', '#/connections'],
-      ['activity', '#/activity'], ['trash', '#/trash'], ['connect', '#/connect']];
+      ['activity', '#/activity'], ['trash', '#/trash'], ['connect', '#/connect'], ['settings', '#/settings']];
     const active = route.page === 'workspace' ? 'workspaces' : route.page;
     return h('header', { class: 'topbar' },
       h('a', { class: 'brand', href: '#/' }, h('img', { src: '/static/favicon.svg', alt: '' }), h('span', null, t('app.name'))),
@@ -393,7 +421,7 @@
 
   // ------------------------------------------------------------- workspace
   async function pageWorkspace(route, stale) {
-    const ws = await api('GET', wsApi(route.ws));
+    const ws = await api('GET', wsApi(route.ws) + (route.tab === 'settings' ? '?usage=true' : ''));
     if (stale()) return h('div');
     const tabs = ['files', 'history', 'activity', 'settings', 'connect'];
     const tab = tabs.includes(route.tab) ? route.tab : 'files';
@@ -407,7 +435,7 @@
     const tabBar = h('div', { class: 'tabs' }, tabs.map((k) =>
       h('a', { href: wsHash(ws.name, k), class: tab === k ? 'active' : '' }, t('tab.' + k))));
     const body = { files: tabFiles, history: tabHistory, activity: tabActivity, settings: tabSettings, connect: tabConnect }[tab];
-    return h('div', null, head, tabBar, await body(ws, route));
+    return h('div', null, head, tabBar, await body(ws, route, stale));
   }
 
   // ----------------------------------------------------------------- files
@@ -423,14 +451,15 @@
     return fs;
   }
 
-  async function tabFiles(ws, route) {
+  async function tabFiles(ws, route, stale) {
     const fs = fsState(ws.name);
     if (!fs.loaded) await loadTree(ws.name);
-    const file = route.file || '';
-    if (file) {
-      const parts = file.split('/');
+    let file = route.file || '';
+    const expandTo = (path) => {
+      const parts = path.split('/');
       for (let i = 1; i < parts.length; i++) fs.expanded.add(parts.slice(0, i).join('/'));
-    }
+    };
+    if (file) expandTo(file);
     const treeEl = h('div', { class: 'tree' });
     const editorEl = h('div', { class: 'editor-panel' });
     const uploadInput = h('input', { type: 'file', multiple: true, class: 'hidden', onchange: () => doUpload(ws, uploadInput) });
@@ -487,9 +516,23 @@
         h('a', { class: 'btn sm ghost', title: t('files.zip'), href: wsApi(ws.name) + '/archive' }, '⤓')),
       dirBar, treeEl);
 
+    const placeholder = () => { state.editor = null; editorEl.replaceChildren(h('div', { class: 'placeholder' }, t('files.selectFile'))); };
     if (file) await openFile(ws, file, editorEl);
-    else { state.editor = null; editorEl.replaceChildren(h('div', { class: 'placeholder' }, t('files.selectFile'))); }
-    return h('div', { class: 'files' }, treePanel, editorEl);
+    else placeholder();
+    const el = h('div', { class: 'files' }, treePanel, editorEl);
+    if (!stale || !stale()) {
+      let showSeq = 0;
+      state.filesView = { ws: ws.name, el, show: async (path) => {
+        const mine = ++showSeq;
+        file = path;
+        if (file) expandTo(file);
+        drawTree();
+        if (!file) return placeholder();
+        const done = busy();
+        try { await openFile(ws, file, editorEl, () => mine !== showSeq); } finally { done(); }
+      } };
+    }
+    return el;
   }
 
   function fileIcon(p) {
@@ -503,14 +546,16 @@
   }
   const isImage = (p) => /\.(png|jpe?g|gif|webp|bmp)$/i.test(p);
 
-  async function openFile(ws, path, editorEl) {
+  async function openFile(ws, path, editorEl, stale) {
     let data;
     try { data = await api('GET', wsApi(ws.name) + '/file?path=' + enc(path)); }
     catch (e) {
+      if (stale && stale()) return;
       state.editor = null;
       editorEl.replaceChildren(h('div', { class: 'placeholder' }, e.message));
       return;
     }
+    if (stale && stale()) return;  // the user already clicked another file
     state.editor = { ws: ws.name, path: data.path, version: data.version, original: data.encoding === 'utf-8' ? data.content : null,
       encoding: data.encoding, size: data.size };
     const ed = state.editor;
@@ -945,6 +990,71 @@
       rows.length ? h('div', { class: 'table-wrap' }, h('table', null,
         h('thead', null, h('tr', null, [t('conn.app'), t('common.role'), t('common.workspace'), t('common.created'), t('common.lastUsed'), ''].map((x) => h('th', null, x)))),
         h('tbody', null, rows))) : h('div', { class: 'empty' }, t('common.empty')));
+  }
+
+  // -------------------------------------------------------------- settings
+  async function pageSettings() {
+    const s = await api('GET', '/api/settings');
+    const u = s.usage;
+    const kv = (rows) => h('table', { class: 'kv' }, h('tbody', null, rows.filter(Boolean).map(([k, v]) =>
+      h('tr', null, h('th', null, k), h('td', null, v)))));
+    let reachable = true;
+    try { const url = new URL(s.base_url); reachable = url.protocol === 'https:' && !url.port; } catch (e) { reachable = false; }
+
+    const last = s.last_compaction;
+    const lastText = last ? t('server.lastRun', { t: relTime(last.at), by: last.by, n: last.compacted, saved: fmtBytes(last.saved_bytes) })
+      : t('server.neverRun');
+    const allBtn = h('button', { class: 'btn primary', onclick: async () => {
+      allBtn.disabled = true; allBtn.textContent = t('server.compacting');
+      try {
+        const r = await api('POST', '/api/compact-all');
+        toast(t('server.compactAllDone', { n: r.last_compaction.compacted, saved: fmtBytes(r.last_compaction.saved_bytes) }));
+        render();
+      } catch (e) { toast(e.message, true); allBtn.disabled = false; allBtn.textContent = t('server.compactAll'); }
+    } }, t('server.compactAll'));
+    const rows = u.workspaces.map((w) => {
+      const btn = h('button', { class: 'btn sm', onclick: async () => {
+        btn.disabled = true;
+        try {
+          const r = await api('POST', wsApi(w.workspace) + '/compact');
+          toast(t('settings.compacted', { before: fmtBytes(r.before_bytes), after: fmtBytes(r.after_bytes) }));
+          render();
+        } catch (e) { toast(e.message, true); btn.disabled = false; }
+      } }, t('server.compactOne'));
+      return h('tr', null, h('td', null, h('a', { href: wsHash(w.workspace) }, w.workspace)),
+        h('td', { class: 'num' }, fmtBytes(w.files_bytes)), h('td', { class: 'num' }, fmtBytes(w.history_bytes)),
+        h('td', { class: 'num' }, s.git ? btn : null));
+    });
+
+    return h('div', { class: 'stack', style: 'max-width:900px' },
+      h('div', { class: 'page-head' }, h('h1', null, t('server.title'))),
+      h('div', { class: 'card stack' }, h('h3', { style: 'margin:0' }, t('server.storage')),
+        h('p', { class: 'muted', style: 'margin:0' }, t('server.summary', { n: u.workspaces.length, files: fmtBytes(u.files_bytes),
+          history: fmtBytes(u.history_bytes), trash: fmtBytes(u.trash_bytes), db: fmtBytes(u.database_bytes) })),
+        s.git ? h('div', { class: 'row wrap' }, allBtn,
+          h('span', { class: 'muted small' }, (s.history_compaction_hours ? t('server.autoCompact', { h: s.history_compaction_hours })
+            : t('server.autoOff')) + ' · ' + lastText)) : h('div', { class: 'muted' }, t('server.gitOff')),
+        h('div', { class: 'hint', style: 'margin:0' }, t('server.compactAllHint')),
+        rows.length ? h('div', { class: 'table-wrap' }, h('table', null,
+          h('thead', null, h('tr', null, h('th', null, t('common.workspace')), h('th', { class: 'num' }, t('server.colFiles')),
+            h('th', { class: 'num' }, t('server.colHistory')), h('th', null, ''))),
+          h('tbody', null, rows))) : null),
+      h('div', { class: 'card stack' }, h('h3', { style: 'margin:0' }, t('server.server')),
+        reachable ? null : h('div', { class: 'banner warn' }, t('server.publicUrlWarning', { url: s.base_url })),
+        kv([[t('server.version'), 'v' + s.version],
+          [t('server.publicUrl'), s.public_url || t('server.publicUrlUnset', { url: s.base_url })],
+          [t('server.mcpUrl'), h('span', { class: 'mono' }, s.mcp_url)],
+          [t('server.dataDir'), h('span', { class: 'mono' }, s.data_dir)],
+          [t('server.git'), s.git ? t('server.on') : t('server.off')]])),
+      h('div', { class: 'card stack' }, h('h3', { style: 'margin:0' }, t('server.access')),
+        kv([[t('server.agentPassword'), s.agent_password_enabled ? t('server.enabled') : t('server.disabled')],
+          [t('server.maxFile'), s.max_file_mb + ' MB'],
+          [t('server.accessTtl'), t('server.minutes', { n: s.access_token_minutes })],
+          [t('server.refreshTtl'), t('setup.days', { n: s.refresh_token_days })],
+          [t('server.session'), t('server.hours', { n: s.session_hours })],
+          [t('server.loginLimit'), t('server.loginLimitValue', { n: s.login_max_failures, m: s.login_window_minutes })],
+          [t('server.proxies'), h('span', { class: 'mono' }, s.trusted_proxies)]])),
+      h('div', { class: 'banner info' }, t('server.howToChange')));
   }
 
   // ----------------------------------------------------------------- trash

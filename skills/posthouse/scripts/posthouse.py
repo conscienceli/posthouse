@@ -41,7 +41,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-__version__ = "0.6.2"
+__version__ = "0.7.0"
 EXIT_CONFLICT = 3
 CRED_KEYS = ("url", "user", "password", "token", "agent")
 

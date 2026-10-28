@@ -191,3 +191,18 @@ td .mono { word-break: break-all; }
   .nav { order: 3; width: 100%; padding-bottom: 6px; }
   main { padding: 16px 12px 50px; }
 }
+
+/* key/value tables (Settings page) */
+table.kv { width: 100%; border-collapse: collapse; }
+table.kv th, table.kv td { border: 0; vertical-align: baseline; line-height: 1.5; }
+table.kv th { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--muted); background: transparent; font-weight: 500; width: 38%; text-align: left; padding: 8px 12px 8px 0; }
+table.kv td { padding: 8px 0; font-size: 13.5px; overflow-wrap: anywhere; }
+table.kv tr + tr th, table.kv tr + tr td { border-top: 1px solid var(--line); }
+td.num, th.num { text-align: right; white-space: nowrap; }
+
+/* progress bar while a page or file loads (instead of blanking the page) */
+body.busy { cursor: progress; }
+body.busy::before { content: ""; position: fixed; top: 0; left: -40%; width: 40%; height: 2px; z-index: 1000;
+  background: var(--accent); animation: busy-bar 1s ease-in-out infinite; }
+@keyframes busy-bar { from { left: -40%; } to { left: 100%; } }
+@media (prefers-reduced-motion: reduce) { body.busy::before { animation: none; left: 0; width: 100%; opacity: .6; } }
