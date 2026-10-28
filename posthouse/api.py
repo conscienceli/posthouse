@@ -17,7 +17,7 @@ from starlette.concurrency import run_in_threadpool
 
 from . import __version__
 from .auth import SESSION_COOKIE, AuthError, Principal, clean_actor
-from .deps import Ctx, base_url, client_key, get_ctx, is_https
+from .deps import Ctx, base_url, client_key, get_ctx, header_text, is_https
 from .mcp_server import _session_markdown
 from .oauth import revoke_grant
 from .security import constant_eq
@@ -34,7 +34,7 @@ def principal(request: Request) -> Principal:
     try:
         p = ctx.auth.from_headers(request.headers.get("authorization", ""),
                                   request.cookies.get(SESSION_COOKIE), client_key(request),
-                                  request.headers.get("x-posthouse-agent"))
+                                  header_text(request.headers.get("x-posthouse-agent")))
     except AuthError as e:
         raise HTTPException(e.status, {"error": "unauthorized", "message": e.message})
     if p is None:
@@ -180,7 +180,7 @@ def me(request: Request):
     try:
         p = ctx.auth.from_headers(request.headers.get("authorization", ""),
                                   request.cookies.get(SESSION_COOKIE), client_key(request),
-                                  request.headers.get("x-posthouse-agent"))
+                                  header_text(request.headers.get("x-posthouse-agent")))
     except AuthError as e:
         raise HTTPException(e.status, {"error": "unauthorized", "message": e.message})
     if p is None:
@@ -339,7 +339,7 @@ async def raw_put(name: str, path: str, request: Request, append: bool = False,
     expected = (request.headers.get("if-match") or "").strip().strip('"') or None
     if request.headers.get("if-none-match", "").strip() == "*":
         expected = "new"
-    msg = request.headers.get("x-posthouse-message")
+    msg = header_text(request.headers.get("x-posthouse-message"))
     return await run_in_threadpool(ctx.store.write, ws, path, data, expected, actor=p.actor, message=msg)
 
 

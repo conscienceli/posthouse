@@ -1,3 +1,5 @@
+import pytest
+
 from conftest import ADMIN, ADMIN_PW, AGENT, basic
 
 
@@ -126,3 +128,19 @@ def test_ui_served_with_csp(client):
     assert r.status_code == 200 and "app.js" in r.text
     assert "frame-ancestors 'none'" in r.headers["content-security-policy"]
     assert client.get("/static/i18n/languages.json").status_code == 200
+
+
+@pytest.mark.parametrize("sent, expected", [
+    ("UTF-8''%E6%9B%B4%E6%96%B0%E8%AE%A1%E5%88%92", "更新计划"),        # RFC 8187 (posthouse.py)
+    ("utf-8''50%25%20done", "50% done"),
+    ("更新计划".encode("utf-8"), "更新计划"),                              # raw UTF-8 bytes (curl)
+    ("50% done", "50% done"),                                              # plain ASCII stays as is
+    ("café".encode("latin-1"), "café"),                                    # real Latin-1 stays as is
+])
+def test_text_headers_accept_non_ascii(client, ws, sent, expected):
+    r = client.put("/api/workspaces/demo/raw/h.md", content=expected.encode() + b"!",
+                   headers={**AGENT, "X-Posthouse-Message": sent, "X-Posthouse-Agent": sent})
+    assert r.status_code in (200, 201), r.text
+    commit = client.get("/api/workspaces/demo/history?limit=1", headers=AGENT).json()["commits"][0]
+    assert commit["message"] == expected
+    assert commit["author"] == expected

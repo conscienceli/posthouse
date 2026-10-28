@@ -12,6 +12,11 @@ Send one of these:
 
 Optional: `X-Posthouse-Agent: <name>` sets the author recorded in history and activity.
 
+Non-ASCII text in `X-Posthouse-Agent` and `X-Posthouse-Message` (for example Chinese) can be sent
+as raw UTF-8 (what `curl -H` does) or encoded as in RFC 8187: `UTF-8''` followed by the
+percent-encoded UTF-8 bytes, e.g. `X-Posthouse-Message: UTF-8''%E6%9B%B4%E6%96%B0`. `posthouse.py`
+encodes automatically. Plain ASCII values are used as they are.
+
 Errors look like `{"error": "<code>", "message": "..."}` with status 400, 401, 403, 404, 409
 (version conflict, also includes `current_version`), 413 (too large), 422 (validation) or 429
 (rate limited).

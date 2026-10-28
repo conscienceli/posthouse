@@ -41,7 +41,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-__version__ = "0.7.0"
+__version__ = "0.7.1"
 EXIT_CONFLICT = 3
 CRED_KEYS = ("url", "user", "password", "token", "agent")
 
@@ -155,6 +155,9 @@ class Client:
             h["Content-Type"] = "application/octet-stream"
         if headers:
             h.update(headers)
+        for k, v in h.items():  # headers are Latin-1: send other text as UTF-8''<percent-encoded> (RFC 8187)
+            if not v.isascii():
+                h[k] = "UTF-8''" + urllib.parse.quote(v, safe="")
         req = urllib.request.Request(url, data=data, method=method, headers=h)
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as r:

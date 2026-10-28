@@ -18,7 +18,7 @@ from starlette.concurrency import run_in_threadpool
 
 from . import __version__
 from .auth import AuthError, Principal
-from .deps import Ctx, base_url, client_key, get_ctx
+from .deps import Ctx, base_url, client_key, get_ctx, header_text
 from .storage import NotFound, StorageError
 
 log = logging.getLogger("posthouse.mcp")
@@ -458,7 +458,7 @@ def handle_message(ctx: Ctx, request: Request, p: Principal, msg: Any) -> tuple[
         # Without an explicit X-Posthouse-Agent header, name the author after the MCP client.
         info = meta.get("io.modelcontextprotocol/clientInfo")
         if (isinstance(info, dict) and info.get("name") and p.via == "basic"
-                and not request.headers.get("x-posthouse-agent")):
+                and not header_text(request.headers.get("x-posthouse-agent"))):
             from .auth import clean_actor
             p.actor = clean_actor(str(info.get("title") or info["name"])) or p.actor
     return _dispatch(ctx, request, p, msg, modern)
@@ -501,7 +501,7 @@ async def mcp_post(request: Request):
     ctx = get_ctx(request)
     try:
         p = await run_in_threadpool(ctx.auth.from_headers, request.headers.get("authorization", ""), None,
-                                    client_key(request), request.headers.get("x-posthouse-agent"))
+                                    client_key(request), header_text(request.headers.get("x-posthouse-agent")))
     except AuthError as e:
         if e.status == 429:
             return _unauthorized(request, e.message, 429)
@@ -520,7 +520,7 @@ async def mcp_post_url_token(request: Request, token: str):
         return JSONResponse({"jsonrpc": "2.0", "id": None, "error": {"code": -32001, "message": "Invalid token."}},
                             status_code=401)
     p.via = "url_token"
-    agent = request.headers.get("x-posthouse-agent")
+    agent = header_text(request.headers.get("x-posthouse-agent"))
     if agent:
         from .auth import clean_actor
         p.actor = clean_actor(agent) or p.actor

@@ -59,3 +59,23 @@ def test_cli_roundtrip(run, tmp_path):
     assert out.startswith("cli-ws")
     code, _, err = run("ls", password="wrong")
     assert code == 1 and "401" in err
+
+
+def test_non_ascii_message_and_author(server, isolated, capsys):
+    """-m and --agent in Chinese: headers are Latin-1, so the CLI encodes them (RFC 8187)."""
+    cli = load_cli()
+    args = ["--url", server, "--user", "agent", "--password", "agent", "--agent", "克劳德 (Cowork)"]
+    assert cli.main([*args, "create", "zh-msg"]) == 0
+    capsys.readouterr()
+    import io
+    import sys
+    sys.stdin = io.TextIOWrapper(io.BytesIO("# 计划\n".encode()))
+    try:
+        assert cli.main([*args, "write", "zh-msg", "files/计划.md", "-m", "更新计划：第二节 50% 完成"]) == 0
+    finally:
+        sys.stdin = sys.__stdin__
+    capsys.readouterr()
+    assert cli.main([*args, "history", "zh-msg", "--json", "-n", "1"]) == 0
+    commit = __import__("json").loads(capsys.readouterr().out)["commits"][0]
+    assert commit["message"] == "更新计划：第二节 50% 完成"
+    assert commit["author"] == "克劳德 (Cowork)"
