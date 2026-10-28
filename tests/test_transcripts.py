@@ -8,6 +8,7 @@ import stat
 import sys
 import time
 import urllib.parse
+import urllib.error
 import urllib.request
 
 import pytest
@@ -152,6 +153,7 @@ def log_lines(home):
 
 def test_hook_saves_before_and_after_each_turn(cli, server, isolated, monkeypatch, capsys, tmp_path):
     home = isolated
+    monkeypatch.setenv("POSTHOUSE_HOOK_SYNC", "1")  # upload inline so the test can check the server right away
     api(server, "POST", "/api/workspaces", {"name": "hooked"})
     assert cli.main(["--url", server, "--user", "agent", "--password", "agent", "--agent", "Claude Code", "login"]) == 0
     cfg_file = home / ".config" / "posthouse" / "config.json"
@@ -203,12 +205,13 @@ def test_hook_saves_before_and_after_each_turn(cli, server, isolated, monkeypatc
 
 def test_hook_never_blocks(cli, isolated, monkeypatch, capsys, tmp_path):
     home = isolated
+    monkeypatch.setenv("POSTHOUSE_HOOK_SYNC", "1")
     t = tmp_path / "s.jsonl"
     write_transcript(t, BASE_ROWS)
     # no workspace linked: saved locally only
     code, out = hook(cli, monkeypatch, capsys, {"session_id": SESSION, "transcript_path": str(t),
                                                  "hook_event_name": "Stop", "cwd": os.getcwd()})
-    assert code == 0 and out == "" and "local only (no workspace linked)" in log_lines(home)[-1]
+    assert code == 0 and out == "" and "locally only (no workspace linked)" in log_lines(home)[-1]
     # unreachable server: still exit 0, no output, quick, error logged
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
@@ -317,3 +320,33 @@ def test_global_options_work_after_the_command(cli, server, isolated, capsys):
     # the log command's own --agent-name still works next to the global --agent
     api(server, "POST", "/api/workspaces", {"name": "opts"})
     assert cli.main(["log", "opts", "--summary", "s", "--agent-name", "Gemini", "--agent", "x"]) == 0
+
+
+def test_hook_uploads_in_the_background(cli, server, isolated, monkeypatch, capsys, tmp_path):
+    """Default mode: the hook only saves locally and returns; a detached process uploads."""
+    home = isolated
+    api(server, "POST", "/api/workspaces", {"name": "bg"})
+    assert cli.main(["--url", server, "--user", "agent", "--password", "agent", "login"]) == 0
+    assert cli.main(["use", "bg"]) == 0
+    capsys.readouterr()
+    t = tmp_path / "session.jsonl"
+    write_transcript(t, BASE_ROWS)
+    started = time.time()
+    code, out = hook(cli, monkeypatch, capsys, {"session_id": SESSION, "transcript_path": str(t),
+                                                 "hook_event_name": "Stop", "cwd": os.getcwd()})
+    assert code == 0 and out == "" and time.time() - started < 3
+    assert "uploading to bg in the background" in log_lines(home)[-1]
+    part = "transcripts/2026-10-27_0123abcd/part-001.md"
+    for _ in range(100):  # wait for the background upload
+        try:
+            if "Deployed." in get_file(server, "bg", part):
+                break
+        except urllib.error.HTTPError:
+            pass
+        time.sleep(0.1)
+    assert "Deployed." in get_file(server, "bg", part)
+    for _ in range(50):
+        if any(line.startswith(tuple("0123456789")) and " upload " in line for line in log_lines(home)):
+            break
+        time.sleep(0.1)
+    assert any(" upload 0123abcd bg:" in line for line in log_lines(home))

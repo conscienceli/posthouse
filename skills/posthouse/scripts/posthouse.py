@@ -41,7 +41,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-__version__ = "0.6.0"
+__version__ = "0.6.1"
 EXIT_CONFLICT = 3
 CRED_KEYS = ("url", "user", "password", "token", "agent")
 
@@ -552,7 +552,7 @@ def find_transcript(session_id: str | None = None) -> str | None:
 
 
 class _StateLock:
-    """Serialize hook runs for one session (UserPromptSubmit and Stop can overlap)."""
+    """Serialize hook runs for one session (UserPromptSubmit and Stop can overlap). wait=0: don't wait."""
 
     def __init__(self, path: str, wait: float = 15):
         self.path, self.wait, self.f = path + ".lock", wait, None
@@ -570,7 +570,8 @@ class _StateLock:
                 fcntl.flock(self.f, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 return self
             except OSError:
-                if time.time() > deadline:
+                if time.time() >= deadline:
+                    self.f.close()
                     raise TimeoutError("another save is still running")
                 time.sleep(0.2)
 
@@ -578,17 +579,37 @@ class _StateLock:
         self.f.close()
 
 
-def save_transcript(client: Client | None, workspace: str | None, transcript: str | None, session_id: str,
-                    agent: str, project: str, tail: str = "", event: str = "manual",
-                    entries: list | None = None) -> dict:
-    """Save the conversation locally (cache) and upload the parts that changed to the workspace."""
-    state_path = os.path.join(cache_dir(), "sessions", re.sub(r"[^A-Za-z0-9_.-]", "_", session_id) + ".json")
+def _session_files(session_id: str) -> tuple:
+    base = os.path.join(cache_dir(), "sessions", re.sub(r"[^A-Za-z0-9_.-]", "_", session_id))
+    return base + ".json", base + ".uploaded.json"
+
+
+def _read_json(path: str) -> dict:
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _write_json(path: str, data: dict) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = f"{path}.{os.getpid()}.tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+    os.replace(tmp, path)
+
+
+PART_RE = re.compile(r"^part-(\d{3,})\.md$")
+
+
+def save_local(transcript: str | None, session_id: str, agent: str, project: str, tail: str = "",
+               entries: list | None = None) -> dict:
+    """Render the conversation and write it to the local cache (fast; no network)."""
+    state_path, _ = _session_files(session_id)
     with _StateLock(state_path):
-        try:
-            with open(state_path, encoding="utf-8") as f:
-                state = json.load(f)
-        except (OSError, ValueError):
-            state = {}
+        state = _read_json(state_path)
         started = state.get("started") or _first_timestamp(transcript) or dt.datetime.now(dt.timezone.utc).isoformat()
         folder = state.get("folder") or f"{TRANSCRIPTS_DIR}/{_stamp(started)[:10]}_{session_id[:8]}"
         meta = {"agent": agent, "session": session_id, "project": project, "started": started}
@@ -596,35 +617,113 @@ def save_transcript(client: Client | None, workspace: str | None, transcript: st
         local_dir = os.path.join(cache_dir(), folder)
         os.makedirs(local_dir, exist_ok=True)
         for i, text in enumerate(parts, 1):
-            with open(os.path.join(local_dir, f"part-{i:03d}.md"), "w", encoding="utf-8") as f:
+            path = os.path.join(local_dir, f"part-{i:03d}.md")
+            tmp = f"{path}.{os.getpid()}.tmp"  # atomic: a background upload may be reading
+            with open(tmp, "w", encoding="utf-8") as f:
                 f.write(text)
-        target = f"{client.base if client else ''}|{workspace or ''}"
-        if state.get("target") != target:
-            state = {"target": target, "uploaded": {}}
+            os.replace(tmp, path)
+        for name in os.listdir(local_dir):  # the transcript can shrink (for example after /clear)
+            m = PART_RE.match(name)
+            if m and int(m.group(1)) > len(parts):
+                os.remove(os.path.join(local_dir, name))
         state.update({"started": started, "folder": folder})
-        result = {"workspace": workspace, "folder": folder, "parts": len(parts), "uploaded": 0,
-                  "local": local_dir}
+        _write_json(state_path, state)
+        return {"folder": folder, "local": local_dir, "parts": len(parts)}
 
-        def keep():
-            os.makedirs(os.path.dirname(state_path), exist_ok=True)
-            with open(state_path, "w", encoding="utf-8") as f:
-                json.dump(state, f)
 
-        if client and workspace:
-            label = {"UserPromptSubmit": "before turn", "Stop": "after turn"}.get(event, event)
-            for i, text in enumerate(parts, 1):
-                name = f"{folder}/part-{i:03d}.md"
-                data = text.encode("utf-8")
-                ver = hashlib.sha256(data).hexdigest()[:16]
-                if state["uploaded"].get(name) == ver:
-                    continue
-                client.request("PUT", file_url(workspace, name), raw=data,
-                               headers={"X-Posthouse-Message": f"Save transcript ({label}): {name}"})
-                state["uploaded"][name] = ver
-                result["uploaded"] += 1
-                keep()
-        keep()
-        return result
+def _local_parts(local_dir: str) -> list:
+    names = sorted(n for n in os.listdir(local_dir) if PART_RE.match(n)) if os.path.isdir(local_dir) else []
+    out = []
+    for n in names:
+        with open(os.path.join(local_dir, n), "rb") as f:
+            data = f.read()
+        out.append((n, data, hashlib.sha256(data).hexdigest()[:16]))
+    return out
+
+
+def upload_pending(client: Client, workspace: str, session_id: str, event: str = "manual") -> dict:
+    """Upload the locally saved parts that this workspace doesn't have yet."""
+    state_path, up_path = _session_files(session_id)
+    folder = _read_json(state_path).get("folder")
+    if not folder:
+        return {"uploaded": 0, "parts": 0, "folder": None}
+    target = f"{client.base}|{workspace}"
+    up = _read_json(up_path)
+    if up.get("target") != target:
+        up = {"target": target, "uploaded": {}}
+    label = {"UserPromptSubmit": "before turn", "Stop": "after turn"}.get(event, event)
+    parts = _local_parts(os.path.join(cache_dir(), folder))
+    sent = 0
+    for name, data, ver in parts:
+        remote = f"{folder}/{name}"
+        if up["uploaded"].get(remote) == ver:
+            continue
+        client.request("PUT", file_url(workspace, remote), raw=data,
+                       headers={"X-Posthouse-Message": f"Save transcript ({label}): {remote}"})
+        up["uploaded"][remote] = ver
+        sent += 1
+        _write_json(up_path, up)
+    return {"uploaded": sent, "parts": len(parts), "folder": folder}
+
+
+def _pending(client_base: str, workspace: str, session_id: str) -> bool:
+    state_path, up_path = _session_files(session_id)
+    folder = _read_json(state_path).get("folder")
+    up = _read_json(up_path)
+    if not folder:
+        return False
+    if up.get("target") != f"{client_base}|{workspace}":
+        return True
+    done = up.get("uploaded") or {}
+    return any(done.get(f"{folder}/{n}") != v for n, _, v in _local_parts(os.path.join(cache_dir(), folder)))
+
+
+def save_transcript(client: Client | None, workspace: str | None, transcript: str | None, session_id: str,
+                    agent: str, project: str, tail: str = "", event: str = "manual",
+                    entries: list | None = None) -> dict:
+    """Save locally, then upload what changed (synchronously)."""
+    r = save_local(transcript, session_id, agent, project, tail=tail, entries=entries)
+    result = {"workspace": workspace, "folder": r["folder"], "parts": r["parts"], "uploaded": 0, "local": r["local"]}
+    if client and workspace:
+        with _StateLock(_session_files(session_id)[1], wait=60):
+            result["uploaded"] = upload_pending(client, workspace, session_id, event)["uploaded"]
+    return result
+
+
+def _spawn_upload(workspace: str, session_id: str, event: str) -> None:
+    """Upload in a detached process, so a slow server never delays the conversation."""
+    import subprocess
+    args = [sys.executable, os.path.abspath(__file__), "hook-upload", "--workspace", workspace,
+            "--session", session_id, "--event", event]
+    kw = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL, "close_fds": True}
+    if os.name == "nt":
+        kw["creationflags"] = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+    else:
+        kw["start_new_session"] = True
+    subprocess.Popen(args, **kw)
+
+
+def cmd_hook_upload(a) -> int:
+    """Background part of the hook: upload pending parts, then check again for newer saves."""
+    try:
+        creds = resolve_creds(a)
+        client = Client(creds["url"], creds["user"], creds["password"], creds["token"],
+                        creds["agent"] or "Claude Code", timeout=60)
+        up_lock = _session_files(a.session)[1]
+        deadline = time.time() + 900
+        while True:
+            try:
+                with _StateLock(up_lock, wait=0):
+                    r = upload_pending(client, a.workspace, a.session, a.event or "manual")
+            except TimeoutError:
+                return 0  # another upload is running; it checks for newer saves before it exits
+            if r["uploaded"]:
+                _hook_log(f"upload {a.session[:8]} {a.workspace}:{r['folder']} parts={r['parts']} uploaded={r['uploaded']}")
+            if time.time() > deadline or not _pending(client.base, a.workspace, a.session):
+                return 0
+    except BaseException as e:
+        _hook_log(f"upload {(a.session or '')[:8]} error: {type(e).__name__}: {e}")
+    return 0
 
 
 def _hook_log(line: str) -> None:
@@ -674,14 +773,19 @@ def cmd_hook(a) -> int:
             last_ai = next((e.get("text") for e in reversed(entries) if e["role"] == "assistant"), None)
             if (last_ai or "").strip() != data["last_assistant_message"].strip():
                 tail = f"## Assistant · {_now_stamp()}\n\n{_clip(data['last_assistant_message'], TEXT_CHARS)}\n"
-        client = None
-        if ws and creds["url"]:
-            client = Client(creds["url"], creds["user"], creds["password"], creds["token"],
-                            creds["agent"] or "Claude Code", timeout=8)
-        r = save_transcript(client, ws, transcript, session_id, creds["agent"] or "Claude Code", project,
-                            tail=tail, event=event, entries=entries)
-        where = f"{ws}:{r['folder']}" if client else f"local only ({'no workspace linked' if not ws else 'no server URL'})"
-        _hook_log(f"{event} {session_id[:8]} {where} parts={r['parts']} uploaded={r['uploaded']}")
+        agent = creds["agent"] or "Claude Code"
+        r = save_local(transcript, session_id, agent, project, tail=tail, entries=entries)
+        if not (ws and creds["url"]):
+            why = "no workspace linked" if not ws else "no server URL"
+            _hook_log(f"{event} {session_id[:8]} saved locally only ({why}) parts={r['parts']}")
+        elif os.environ.get("POSTHOUSE_HOOK_SYNC") == "1":
+            client = Client(creds["url"], creds["user"], creds["password"], creds["token"], agent, timeout=20)
+            with _StateLock(_session_files(session_id)[1], wait=20):
+                u = upload_pending(client, ws, session_id, event)
+            _hook_log(f"{event} {session_id[:8]} {ws}:{r['folder']} parts={r['parts']} uploaded={u['uploaded']}")
+        else:
+            _spawn_upload(ws, session_id, event)
+            _hook_log(f"{event} {session_id[:8]} saved locally parts={r['parts']}; uploading to {ws} in the background")
     except BaseException as e:  # never let a hook failure reach the conversation
         _hook_log(f"{event} error: {type(e).__name__}: {e}")
     return 0
@@ -831,7 +935,7 @@ def cmd_use(a) -> int:
     return 0
 
 
-LOCAL_COMMANDS = {"hook", "install-hooks", "uninstall-hooks", "login", "use", "save-transcript"}
+LOCAL_COMMANDS = {"hook", "hook-upload", "install-hooks", "uninstall-hooks", "login", "use", "save-transcript"}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -910,6 +1014,9 @@ def build_parser() -> argparse.ArgumentParser:
             s.add_argument("--all", action="store_true", help="remove from all three settings files")
     s = add("hook", cmd_hook, "run as a Claude Code hook (reads the event from stdin; used by install-hooks)")
     s.add_argument("-w", "--workspace"); s.add_argument("--event", help="event name if stdin has none")
+    s = sub.add_parser("hook-upload", parents=[common])  # internal: background upload started by `hook`
+    s.set_defaults(fn=cmd_hook_upload)
+    s.add_argument("--workspace", required=True); s.add_argument("--session", required=True); s.add_argument("--event")
     return p
 
 

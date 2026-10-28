@@ -102,8 +102,9 @@ $PH install-hooks --workspace <ws>    # hooks in ~/.claude/settings.json; links 
   context are left out; long tool output is shortened.
 - Each project folder saves to the workspace linked with `$PH use <ws>` (`$PH start <ws>` links a
   folder that has no link yet). Folders without a link are saved only locally.
-- The hook prints nothing and always exits 0, so an unreachable server never blocks the
-  conversation. Log: `~/.cache/posthouse/hook.log`.
+- The hook saves locally and returns in well under a second; a background process uploads
+  (missed uploads are retried on the next turn). It prints nothing and always exits 0, so a slow
+  or unreachable server never delays the conversation. Log: `~/.cache/posthouse/hook.log`.
 - `--scope local` installs for the current project only (`.claude/settings.local.json`).
   Remove with `$PH uninstall-hooks [--scope …]`.
 - To save once without hooks (Claude Code or Cowork): `$PH save-transcript -w <ws>`, or

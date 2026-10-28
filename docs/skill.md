@@ -138,10 +138,13 @@ How it works:
   the values of secret-looking environment variables. Review a few transcripts before relying on it.
 - Thinking, system reminders, skill bodies and subagent conversations are left out; tool results are
   cut to 2,000 characters.
-- A local copy is kept in `~/.cache/posthouse/transcripts/`. If the server is unreachable, the next
-  turn uploads what is missing.
+- The hook first saves a local copy in `~/.cache/posthouse/transcripts/` and returns (well under a
+  second, even for long conversations). A detached background process then uploads the changed
+  parts, with a 60-second timeout per request, so a slow server never delays a turn. If the server
+  is unreachable, the next turn uploads what is missing. Set `POSTHOUSE_HOOK_SYNC=1` to upload
+  inside the hook instead.
 - The hook writes nothing to stdout (on `UserPromptSubmit` that would be added to Claude's context)
-  and always exits 0. Each run takes well under a second; the timeout is 30 seconds.
+  and always exits 0.
   Results are logged to `~/.cache/posthouse/hook.log`.
 - The session bundle (`start`) lists `transcripts/` but keeps transcript commits out of
   "recent changes", so new agents are not flooded.
