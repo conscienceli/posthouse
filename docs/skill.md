@@ -20,7 +20,7 @@ scripts. Agents with the MCP connector can use the tools directly; `SKILL.md` co
 ```
 
 Or download it from your server: `https://posthouse.example.com/skill/posthouse-skill.zip`
-(admin UI → Connect → Download the skill).
+(admin UI → **Download the skill** on the Workspaces page, or the **Agent skill** card under Connect agents).
 
 Upload the zip in Claude's skill settings (Settings → Capabilities/Customize → Skills → Upload).
 Claude then uses it when you mention the workspace. Give the URL and credentials in the

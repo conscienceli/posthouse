@@ -186,12 +186,15 @@
   "setup.tokenNote": "Created the token “{name}”. Anyone with this message can read and write this workspace. Revoke the token under Tokens when you no longer need it.",
   "setup.httpWarning": "The server address in the message is {url}. Claude's cloud sandboxes usually reach only HTTPS sites on port 443, so set POSTHOUSE_PUBLIC_URL to your public HTTPS address (see docs/deploy.md).",
   "setup.skillZip": "Download the skill (.zip)",
-  "setup.skillZipHint": "Optional: upload the zip under Skills in Claude's settings so every chat and task has it. The setup message installs it anyway.",
   "setup.msgIntro": "Please connect this task to my Posthouse workspace \"{ws}\" and save our conversation there automatically, before and after every turn.",
   "setup.msgServer": "Server",
   "setup.msgWorkspace": "Workspace",
   "setup.msgToken": "Token",
   "setup.msgTokenNote": "(opens only this workspace; never copy it into workspace files or summaries)",
   "setup.msgRun": "Run these commands (macOS or Linux shell):",
-  "setup.msgAfter": "Then follow the Posthouse skill in ~/.claude/skills/posthouse/SKILL.md and tell me in a few lines where the project stands. Automatic saving uses Claude Code hooks, so it works in Claude Code and Cowork. Anywhere else, skip install-hooks and just use the workspace."
+  "setup.msgAfter": "Then follow the Posthouse skill in ~/.claude/skills/posthouse/SKILL.md and tell me in a few lines where the project stands. Automatic saving uses Claude Code hooks, so it works in Claude Code and Cowork. Anywhere else, skip install-hooks and just use the workspace.",
+  "skill.title": "Agent skill",
+  "skill.text": "Teaches Claude and other agents how to use your workspaces, with a small command-line tool (Python, no dependencies). It also installs the conversation auto-save hooks for Claude Code.",
+  "skill.claudeApp": "claude.ai, the Claude desktop app and Cowork: download the zip and upload it under Skills in Claude's settings. Every chat and task can then use it.",
+  "skill.claudeCode": "Claude Code: run this on the computer where Claude Code runs:"
 }

@@ -186,12 +186,15 @@
   "setup.tokenNote": "已创建令牌「{name}」。拿到这条消息的人都能读写这个工作区；不再需要时，请在「令牌」页面撤销。",
   "setup.httpWarning": "消息里的服务器地址是 {url}。Claude 的云端沙盒通常只能访问 443 端口的 HTTPS 网站，请把 POSTHOUSE_PUBLIC_URL 设为你的公网 HTTPS 地址（见 docs/deploy.md）。",
   "setup.skillZip": "下载 Skill（.zip）",
-  "setup.skillZipHint": "可选：在 Claude 设置的 Skills 中上传这个压缩包，让每个对话和任务都能用它。接入指令本身也会自动安装。",
   "setup.msgIntro": "请把这个任务接入我的 Posthouse 工作区「{ws}」，并在之后每轮对话开始前和结束后，自动把对话保存到那里。",
   "setup.msgServer": "服务器",
   "setup.msgWorkspace": "工作区",
   "setup.msgToken": "令牌",
   "setup.msgTokenNote": "（只能访问这个工作区；不要把它写进工作区文件或总结里）",
   "setup.msgRun": "请运行以下命令（macOS 或 Linux 终端）：",
-  "setup.msgAfter": "然后按 ~/.claude/skills/posthouse/SKILL.md 里的说明工作，并用几句话告诉我项目目前的进展。自动保存依赖 Claude Code 的钩子，在 Claude Code 和 Cowork 里可用；在其他环境里请跳过 install-hooks，直接使用工作区。"
+  "setup.msgAfter": "然后按 ~/.claude/skills/posthouse/SKILL.md 里的说明工作，并用几句话告诉我项目目前的进展。自动保存依赖 Claude Code 的钩子，在 Claude Code 和 Cowork 里可用；在其他环境里请跳过 install-hooks，直接使用工作区。",
+  "skill.title": "智能体 Skill",
+  "skill.text": "教 Claude 和其他智能体如何使用你的工作区，附带一个小的命令行工具（Python，无需安装依赖），也负责为 Claude Code 安装对话自动保存的钩子。",
+  "skill.claudeApp": "claude.ai、Claude 桌面版和 Cowork：下载压缩包，在 Claude 设置的 Skills 中上传，之后每个对话和任务都能使用。",
+  "skill.claudeCode": "Claude Code：在运行 Claude Code 的电脑上执行："
 }

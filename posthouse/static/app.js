@@ -340,7 +340,7 @@
     return h('div', null,
       h('div', { class: 'page-head' },
         h('div', { class: 'grow' }, h('h1', null, t('ws.title'), ' ', h('span', { class: 'faint' }, '(' + data.workspaces.length + ')'))),
-        filter, h('button', { class: 'btn primary', onclick: newWorkspaceDialog }, '+ ' + t('ws.new'))),
+        filter, skillButton(false), h('button', { class: 'btn primary', onclick: newWorkspaceDialog }, '+ ' + t('ws.new'))),
       grid);
   }
 
@@ -800,9 +800,26 @@
     return h('div', { class: 'card stack' }, h('h3', null, t('setup.title')),
       h('p', { class: 'muted', style: 'margin:0' }, t('setup.cardText')),
       h('div', { class: 'row wrap' }, pick,
-        h('button', { class: 'btn primary', onclick: () => setupDialog(wsName || pick.value) }, '⧉ ' + t('setup.button')),
-        h('a', { class: 'btn', href: '/skill/posthouse-skill.zip', download: 'posthouse-skill.zip' }, '⤓ ' + t('setup.skillZip'))),
-      h('div', { class: 'hint', style: 'margin:0' }, t('setup.skillZipHint')));
+        h('button', { class: 'btn primary', onclick: () => setupDialog(wsName || pick.value) }, '⧉ ' + t('setup.button'))));
+  }
+
+  const SKILL_ZIP = '/skill/posthouse-skill.zip';
+  function skillButton(primary) {
+    return h('a', { class: 'btn' + (primary ? ' primary' : ''), href: SKILL_ZIP, download: 'posthouse-skill.zip',
+      title: t('skill.text') }, '⤓ ' + t('setup.skillZip'));
+  }
+
+  function skillCard() {
+    const base = (state.info && state.info.base_url) || location.origin;
+    const install = 'mkdir -p ~/.claude/skills && curl -fsSL ' + base + SKILL_ZIP
+      + ' -o /tmp/posthouse-skill.zip && python3 -m zipfile -e /tmp/posthouse-skill.zip ~/.claude/skills/';
+    return h('div', { class: 'card stack' },
+      h('div', { class: 'row' }, h('h3', { class: 'grow', style: 'margin:0' }, t('skill.title')),
+        state.info && state.info.version ? h('span', { class: 'badge' }, 'v' + state.info.version) : null),
+      h('p', { class: 'muted', style: 'margin:0' }, t('skill.text')),
+      h('div', null, skillButton(true)),
+      h('ul', { class: 'steps', style: 'margin:0' }, h('li', null, t('skill.claudeApp')), h('li', null, t('skill.claudeCode'))),
+      copyBox(install, true));
   }
 
   // --------------------------------------------------------------- connect
@@ -818,6 +835,7 @@
     return h('div', { class: 'stack', style: 'max-width:900px' },
       h('p', { class: 'muted', style: 'margin-top:0' }, t('connect.intro')),
       setupCard(wsName, workspaces),
+      skillCard(),
       h('div', { class: 'card stack' }, h('h3', null, t('connect.mcpUrl')), copyBox(mcp)),
       h('div', { class: 'card stack' }, h('h3', null, t('connect.oauthTitle')), h('p', { class: 'muted', style: 'margin:0' }, t('connect.oauthText')),
         h('div', null, h('b', null, t('connect.platforms'))),
